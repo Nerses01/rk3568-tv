@@ -1,0 +1,18 @@
+# Build output
+build/
+build-*/
+out/
+*.deb
+
+# Editors and operating systems
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.user
+.DS_Store
+Thumbs.db
+
+# Machine-specific notes and secrets: never in git
+CLAUDE.local.md
+.env
+.claude/settings.local.json

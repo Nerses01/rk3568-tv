@@ -1,0 +1,8 @@
+# Everything is LF: scripts and units run on the Linux board.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.ttf binary
+*.otf binary
