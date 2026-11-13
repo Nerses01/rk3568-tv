@@ -1,7 +1,7 @@
 # Plan
 
-Status on 2026-11-13: steps 0.2 (backup), 0.3 (board housekeeping) and 0.4 (HDMI audio) are done. Next: step 0.5,
-the video spike.
+Status on 2026-11-13: steps 0.2 (backup), 0.3 (board housekeeping), 0.4 (HDMI audio) and 0.5 (video spike: candidate
+B, [03-video-spike.md](03-video-spike.md)) are done. Next: step 0.6, the UI spike, which 0.5 already partly answers.
 
 ## 1. Goal
 
@@ -43,7 +43,7 @@ Surveyed over SSH on 2026-11-11; [02-board.md](02-board.md) has the details.
 | CPU, RAM | 4× Cortex-A55, 4 GB | enough for a Qt Quick UI; not enough to decode 4K in software |
 | Storage | 16 GB eMMC: `/` 6.5 GB (0.4 GB free, 2.2 GB after 0.3), `/userdata` 7.6 GB | builds and media live in `/userdata` |
 | GPU | Mali-G52, vendor driver `libmali-bifrost-g52-g13p0-x11-gbm` | OpenGL ES under X11 or straight on the screen (KMS/GBM); no Wayland build of the driver is installed |
-| Video decoder | Rockchip MPP 1.5.0 with GStreamer elements (`mppvideodec`) | hardware decoding works through GStreamer |
+| Video decoder | Rockchip MPP 1.5.0 with GStreamer elements (`mppvideodec`) | hardware decoding works through GStreamer: H.265 up to 2160p60, H.264 up to 2160p30 (0.5) |
 | mpv | 0.32, offers only `v4l2m2m-copy` decoders | probably no hardware decoding on this kernel; a fallback to test, not the plan |
 | Qt | Qt 6.2.4 and Qt 5.15.3 in Ubuntu's apt | no Qt build needed to start |
 | HDMI audio | `hdmi-sound` disabled in the vendor's device tree; only the analog RK809 codec | enabled in 0.4 with a changed device tree in `boot`; sound plays over HDMI |
@@ -80,6 +80,10 @@ without copying every 4K frame through the CPU is the main technical risk. Step 
 - **C. Video on its own display plane** (`kmssink`) with the Qt UI on a plane above it, transparent where the
   video shows. The classic TV-box design: the display hardware combines the two, nothing is copied.
 
+Decided in 0.5: **B**. It showed every frame up to 2160p30 with the UI at 60 fps; A copies frames and the UI drops to
+6–19 fps; C halves the UI's frame rate unless both planes share one atomic commit
+([03-video-spike.md](03-video-spike.md)).
+
 ### 4.4 Input
 
 Everything maps to one remote-control model: arrows, OK, Back, Home, Play/Pause, volume. Sources:
@@ -112,6 +116,7 @@ system/tests/ tests for those scripts, with stub commands (plain sh)
 packaging/    Debian packaging
 scripts/      developer scripts (deploy, logs, the boot image's device tree)
 scripts/tests/ tests for those scripts
+spikes/       throwaway measurement code from the spikes, kept to reproduce their numbers (no tests)
 docs/
 ```
 
@@ -189,7 +194,7 @@ Decide the display and video stack on real measurements before writing the real 
 
 | Risk | Effect | What we do |
 |---|---|---|
-| Hardware-decoded video can't be shown inside Qt Quick without copies | 4K stutters | spike 0.5 before any UI work; candidate C avoids the problem in hardware |
+| Hardware-decoded video can't be shown inside Qt Quick without copies | 4K stutters | settled by spike 0.5: candidate B shows 2160p30 without copies; 2160p60, 10-bit and VP9 are confirmed in 1.4 |
 | The Mali driver doesn't work with Qt's EGLFS | no desktop-free start | spike 0.6; fallback to a minimal X11 session |
 | HDMI audio can't be enabled | no sound on the TV | 0.4 early; fallbacks: Bluetooth speaker, analog output |
 | A boot-partition change leaves the board unbootable | board out of action | backup and reflash procedure (0.2); the FLASH button reaches loader mode without Ubuntu (tested in 0.4); `scripts/boot-dtb.sh` checks an image before it is written |
@@ -229,3 +234,6 @@ Decide the display and video stack on real measurements before writing the real 
 | 2026-11-13 | The Wi-Fi power-saving test leaves step 0.3 | changing Wi-Fi settings needs Ethernet as the way back, and no cable is connected |
 | 2026-11-13 | A second copy of the backup on a USB stick, with `FILES.sha256` in each copy | the risk "the backup is lost or damaged"; the stick is offline |
 | 2026-11-13 | HDMI audio: change the device tree inside the existing boot image (both copies, all checksums, sizes and positions unchanged) with `scripts/boot-dtb.sh`, rather than rebuild the image | the kernel can't apply overlays; the image isn't signed; changing only what must change leaves the vendor's kernel, logos and layout as they were |
+| 2026-11-13 | Video in the UI: candidate B, our own GStreamer pipeline (`mppvideodec ! queue ! appsink`) whose DMA-BUF frames are drawn as EGLImages in Qt Quick's render pass | 1080p30 and 2160p30, H.264 and H.265: 1799–1800 of 1800 frames shown, UI at 60 fps, about 55 % of one core. A (Qt Multimedia): UI at 19 fps (1080p) and 6 fps (2160p). C (`kmssink` under Qt): UI at 25–30 fps, 17–38 % of frames lost ([03-video-spike.md](03-video-spike.md)) |
+| 2026-11-13 | No Qt Multimedia for video | it copies every frame, and Ubuntu's build needs EGL 1.5 functions that the vendor's Mali EGL 1.4 lacks |
+| 2026-11-13 | Spike code is kept in `spikes/`, without tests | it is measurement code, not product code; kept so that the decisions' numbers can be reproduced |

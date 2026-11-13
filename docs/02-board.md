@@ -18,8 +18,9 @@ IP, MAC and Bluetooth addresses are left out on purpose; they are in the git-ign
 | Users | `root`, and `ftpuser` (uid 1000, with a password) for a weighing-scale application in `/userdata/blsRootPath` (291 MB). Nothing starts that application; `/home` is empty |
 | Kernel | 5.10.209, Rockchip BSP |
 | Desktop | GNOME, with Wayland and Xorg sessions installed |
-| GPU driver | `libmali-bifrost-g52-g13p0-x11-gbm` 1.9, proprietary, for X11 and GBM |
-| Video | `librockchip-mpp1` 1.5.0; GStreamer `rockchipmpp` plugin with `mppvideodec`, `mpph264enc`, `mpph265enc`, `mppjpegdec`, `mppjpegenc`; `librga2` 2.2.0 |
+| GPU driver | `libmali-bifrost-g52-g13p0-x11-gbm` 1.9, proprietary, for X11 and GBM: OpenGL ES 3.2, EGL 1.4. Its `mali/libEGL.so.1` is found before Ubuntu's EGL (`/etc/ld.so.conf.d/00-aarch64-mali.conf`); 03-video-spike.md has what that means for Qt |
+| Video | `librockchip-mpp1` 1.5.0; GStreamer `rockchipmpp` plugin with `mppvideodec`, `mpph264enc`, `mpph265enc`, `mppjpegdec`, `mppjpegenc`; `librga2` 2.2.0. GStreamer itself is the vendor's 1.22.9, with development files. Decoding: H.265 to 2160p60, H.264 to 2160p30 (03-video-spike.md) |
+| Display planes | `Smart0` (primary, at the bottom, RGB only), `Smart1` (RGB only), `Esmart0` and `Esmart1` (also NV12 and 10-bit NV15: the video planes), `Cluster0` (cursor) and `Cluster1` (AFBC); `zpos` 0–7 on all |
 | mpv | 0.32 in `/usr/local/bin`; offers only `v4l2m2m-copy` hardware decoders |
 | Held by apt | GStreamer base and GL packages, `libdrm` and others: the vendor's patched builds (`apt-mark showhold`) |
 | Wi-Fi and Bluetooth | Realtek RTL8821CS. Wi-Fi over SDIO (module `RTL8821CS`); Bluetooth over UART `/dev/ttyS8` with the H5 protocol, attached by `rtk_hciattach`; firmware in `/lib/firmware/rtlbt` |
@@ -62,7 +63,7 @@ main area.
 
 ## Our changes to the vendor image
 
-Made in steps 0.3 and 0.4 (2026-11-13). Copies of the edited files as the vendor shipped them are in
+Made in steps 0.3 to 0.5 (2026-11-13). Copies of the edited files as the vendor shipped them are in
 `/root/rk3568-tv-orig/`.
 
 | Change | Undo |
@@ -75,6 +76,8 @@ Made in steps 0.3 and 0.4 (2026-11-13). Copies of the edited files as the vendor
 | `bt-recover` installed in `/usr/local/sbin` (Known faults) | delete it |
 | `/userdata/dev` and `/userdata/media` created | |
 | `boot`: the device tree enables `hdmi-sound` (step 0.4; image SHA-256 `46ecc4d7…`) | write the vendor's image, `/userdata/dev/hdmi-audio/p03-boot.orig.img` (the same as the backup's), back to `boot` |
+| Qt Quick development packages installed (step 0.5): `qt6-declarative-dev` and QML modules, 29 Ubuntu packages, none held. Log: `/var/log/rk3568-tv-qtdev.log` | `apt purge` them |
+| Test clips in `/userdata/media/test/` (step 0.5, 400 MB); the spike's workspace in `/userdata/dev/video-spike/` | delete them |
 
 ## Vendor files
 
@@ -268,6 +271,12 @@ Step 0.4's images are kept in `/userdata/dev/hdmi-audio/`: `p03-boot.orig.img` (
 `p03-boot.new.img` (`46ecc4d7…`).
 
 ## Known faults and fixes
+
+### apt can't fetch a package (404)
+
+apt's package lists date from the vendor's image. When the mirror has moved on to newer versions, a download fails
+with `404 Not Found`, as `libinput-dev` did on 2026-11-13. Run `apt-get update` first. It touches neither the held
+packages nor anything installed.
 
 ### Load average of 5 at idle
 

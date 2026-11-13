@@ -1,0 +1,1 @@
+{ "device": "/dev/dri/card0", "hwcursor": false, "outputs": [ { "name": "HDMI1", "mode": "1920x1080@60", "format": "argb8888" } ] }
