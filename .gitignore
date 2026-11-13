@@ -4,9 +4,13 @@ build-*/
 out/
 *.deb
 
+# Screenshots from the board (scripts/board.sh shot)
+screenshots/
+
 # Editors and operating systems
 .vscode/*
 !.vscode/extensions.json
+!.vscode/tasks.json
 .idea/
 *.user
 .DS_Store

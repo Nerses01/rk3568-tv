@@ -84,6 +84,7 @@ Made in steps 0.3 to 0.5 (2026-11-13). Copies of the edited files as the vendor 
 | Qt Quick development packages installed (step 0.5): `qt6-declarative-dev` and QML modules, 29 Ubuntu packages, none held. Log: `/var/log/rk3568-tv-qtdev.log` | `apt purge` them |
 | Test clips in `/userdata/media/test/` (step 0.5, 400 MB); the spike's workspace in `/userdata/dev/video-spike/` | delete them |
 | Pictures for the UI spike in `/userdata/media/posters/` (step 0.6, 16 MB); its workspace in `/userdata/dev/ui-spike/` | delete them |
+| The development loop's folder `/userdata/dev/rk3568-tv/` (step 0.7): the app's sources and build, and `screen.edid`, the last screen's EDID. While the development build runs: GNOME stopped, `hdmi_hotplug.service` masked in `/run`, HDMI possibly forced on ([05-development.md](05-development.md)) | `scripts/board.sh stop` or a reboot undoes the run-time changes; delete the folder |
 
 ## Vendor files
 
@@ -283,6 +284,32 @@ Step 0.4's images are kept in `/userdata/dev/hdmi-audio/`: `p03-boot.orig.img` (
 apt's package lists date from the vendor's image. When the mirror has moved on to newer versions, a download fails
 with `404 Not Found`, as `libinput-dev` did on 2026-11-13. Run `apt-get update` first. It touches neither the held
 packages nor anything installed.
+
+### An HDMI hotplug starts the desktop
+
+The vendor's `hdmi_hotplug.service` runs `/usr/sbin/lcd_tp_set`, a vendor binary that, going by its
+`DISPLAY=:0`, sets up the X display. Its unit has `Requires=display-manager.service`, and the udev rule
+`/etc/udev/rules.d/99-hdmi-hotplug.rules` restarts it on every HDMI hotplug event: a screen switched on or off, a
+cable, a forced connector. So every hotplug starts GNOME, and an app that takes the screen from GNOME stops.
+
+Seen on 2026-11-13 in step 0.7, when `systemd-run` refused to start the app because of the service's queued start
+job. The development loop masks the service while the app runs (`systemctl mask --runtime`, undone by
+`board.sh stop` or a reboot; [05-development.md](05-development.md)). The product has to deal with it for good:
+step 1.2.
+
+### A switched-off screen leaves no screen
+
+With the TV switched off, HDMI reads `disconnected` with no modes. Qt on EGLFS then logs `No modes available for
+output "HDMI1"` and `Cannot create window: no screens available`, and aborts. The connector can be forced on at run
+time with a stored EDID that supplies the modes:
+
+```sh
+cat screen.edid > /sys/kernel/debug/dri/0/HDMI-A-1/edid_override   # "reset" undoes it
+echo on > /sys/class/drm/card0-HDMI-A-1/status                     # "detect" undoes it
+```
+
+The display then runs as if the screen were there, and a screen switched on shows the picture. The development
+loop does this by itself ([05-development.md](05-development.md)). A reboot undoes it.
 
 ### Load average of 5 at idle
 

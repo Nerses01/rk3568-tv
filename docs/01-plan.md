@@ -1,8 +1,9 @@
 # Plan
 
 Status on 2026-11-13: steps 0.2 (backup), 0.3 (board housekeeping), 0.4 (HDMI audio), 0.5 (video spike: candidate
-B, [03-video-spike.md](03-video-spike.md)) and 0.6 (UI spike: EGLFS, the UI drawn at 1080p,
-[04-ui-spike.md](04-ui-spike.md)) are done. Next: step 0.7, the development loop.
+B, [03-video-spike.md](03-video-spike.md)), 0.6 (UI spike: EGLFS, the UI drawn at 1080p,
+[04-ui-spike.md](04-ui-spike.md)) and 0.7 (development loop, [05-development.md](05-development.md)) are done. Phase 0
+is complete. Next: step 1.1, the app skeleton.
 
 ## 1. Goal
 
@@ -110,7 +111,9 @@ Everything maps to one remote-control model: arrows, OK, Back, Home, Play/Pause,
 
 ### 4.6 Build, deploy, update
 
-- Start by building on the board, in `/userdata`, from VS Code Remote-SSH; step 0.7 settles the loop.
+- Build on the board, in `/userdata`, from the PC (decided in 0.7, [05-development.md](05-development.md)). The
+  sources stay on the PC. `scripts/board.sh deploy` copies `app/` over SSH, builds it on the board and restarts it
+  on the screen. Screenshots, key presses and the log come back over SSH, so the TV can stay off.
 - Large transfers (backups, test media) go over Ethernet or a USB drive; the board's Wi-Fi is too slow for them.
 - CI on GitHub Actions' arm64 runners builds and tests every push and produces a `.deb` (step 1.8).
 - Installing is `apt install ./rk3568-tv_<version>_arm64.deb`; Phase 3 adds updates from GitHub Releases.
@@ -172,7 +175,8 @@ Decide the display and video stack on real measurements before writing the real 
 - **1.1 App skeleton.** `app/` with CMake, Qt Quick, C++20 and Qt Test; clang-format and qmlformat; GitHub
   Actions builds on an arm64 runner and runs the tests.
 - **1.2 Start at boot.** The systemd unit and the `tv` user; the desktop off by default; how to get the desktop
-  back is written down.
+  back is written down. The vendor's `hdmi_hotplug.service` starts GNOME on every HDMI hotplug and must not
+  (02-board.md). A stopped app exits with status 1, and `XDG_RUNTIME_DIR` must be set (05-development.md).
 - **1.3 Navigation and home screen.** The focus model (arrows, OK, Back, Home) and a 10-foot design: large
   text, safe margins, scaled for 1080p and 4K.
 - **1.4 Player.** The video path from 0.5; play, pause, seek, audio and subtitle tracks; resume where you
@@ -205,6 +209,7 @@ Decide the display and video stack on real measurements before writing the real 
 |---|---|---|
 | Hardware-decoded video can't be shown inside Qt Quick without copies | 4K stutters | settled by spike 0.5: candidate B shows 2160p30 without copies; 2160p60, 10-bit and VP9 are confirmed in 1.4 |
 | The Mali driver doesn't work with Qt's EGLFS | no desktop-free start | settled by spike 0.6: it works, 60 fps at 1080p, once the app links the Mali libraries itself |
+| The vendor's `hdmi_hotplug.service` starts GNOME on every HDMI hotplug | switching the TV off and on brings the desktop over the app | the development loop masks it while the app runs; step 1.2 settles it for good |
 | On a 4K screen, video drawn in the UI (candidate B) is limited to the UI's 1080p framebuffer | 4K video shows at 1080p | step 1.4: a 4K framebuffer while playing, or video on its own plane (candidate C); tested on the developer's 4K monitor at the office |
 | HDMI audio can't be enabled | no sound on the TV | 0.4 early; fallbacks: Bluetooth speaker, analog output |
 | A boot-partition change leaves the board unbootable | board out of action | backup and reflash procedure (0.2); the FLASH button reaches loader mode without Ubuntu (tested in 0.4); `scripts/boot-dtb.sh` checks an image before it is written |
@@ -253,3 +258,5 @@ Decide the display and video stack on real measurements before writing the real 
 | 2026-11-13 | The UI is drawn at 1920×1080; a 4K screen gets it scaled by the display controller (Qt's KMS `size`, atomic modesetting) | at 3840×2160 the GPU manages 28 fps, 44 fps with no pictures, and a faster memory clock doesn't help; the scaler costs the GPU nothing |
 | 2026-11-13 | The app sets the screen mode itself (1920×1080 at 60 Hz by default) | Qt's default is the screen's preferred mode, and the developer's TV prefers 1280×720 at 50 Hz |
 | 2026-11-13 | The app links the Mali EGL, GLES and GBM libraries itself, ahead of Qt and with `--no-as-needed` | Qt's KMS libraries have RUNPATH `$ORIGIN` and otherwise load Mesa's GBM, and Qt stops with "Could not create GBM device" |
+| 2026-11-13 | Development loop: the sources stay on the PC; `scripts/board.sh deploy` sends `app/` over SSH as a tar stream, builds it on the board with CMake and Ninja and restarts it as the transient systemd unit `rk3568-tv-dev`; VS Code tasks call it. No Remote-SSH checkout on the board | a QML change is on screen in 23 s; one copy of the repository, where git and Claude Code work; no cross-compiling sysroot to keep; the app's log goes to the journal ([05-development.md](05-development.md)) |
+| 2026-11-13 | Checking without the TV: screenshots with ffmpeg's `kmsgrab`, key presses through a `uinput` keyboard, and HDMI forced on with the last screen's EDID when the TV is off | the developer prefers not to sit at the TV; `kmsgrab` reads what Qt drew on the Mali GPU; `uinput` keys take a real keyboard's path; all of it is undone by `board.sh stop` or a reboot |

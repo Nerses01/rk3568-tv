@@ -1,0 +1,55 @@
+{
+    // The development loop (docs/05-development.md): Ctrl+Shift+B deploys to the board.
+    // The scripts are POSIX sh; on Windows they run in Git Bash.
+    "version": "2.0.0",
+    "windows": {
+        "options": {
+            "shell": {
+                "executable": "C:\\Program Files\\Git\\bin\\bash.exe",
+                "args": ["-c"]
+            }
+        }
+    },
+    "tasks": [
+        {
+            "label": "Board: deploy (build, install, restart)",
+            "type": "shell",
+            "command": "sh scripts/board.sh deploy",
+            "group": { "kind": "build", "isDefault": true },
+            "problemMatcher": { "base": "$gcc", "fileLocation": ["relative", "${workspaceFolder}"] }
+        },
+        {
+            "label": "Board: screenshot (screenshots/latest.png)",
+            "type": "shell",
+            "command": "sh scripts/board.sh shot",
+            "problemMatcher": []
+        },
+        {
+            "label": "Board: follow the log",
+            "type": "shell",
+            "command": "sh scripts/board.sh logs -f",
+            "isBackground": true,
+            "problemMatcher": []
+        },
+        {
+            "label": "Board: press keys",
+            "type": "shell",
+            "command": "sh scripts/board.sh keys ${input:keys}",
+            "problemMatcher": []
+        },
+        {
+            "label": "Board: stop the app, desktop back",
+            "type": "shell",
+            "command": "sh scripts/board.sh stop",
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "keys",
+            "type": "promptString",
+            "description": "Keys to press: up down left right enter back home menu esc; KEY:MS holds a key, wait:MS pauses",
+            "default": "right"
+        }
+    ]
+}

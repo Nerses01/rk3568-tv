@@ -14,6 +14,7 @@ docs are the source of truth; read them before changing anything:
 | `docs/02-board.md` | the board: hardware, partitions, access, our changes, backup and restore, known faults and their fixes |
 | `docs/03-video-spike.md` | how video gets into the Qt Quick UI (candidate B), its numbers, and what the platform needs for it |
 | `docs/04-ui-spike.md` | the UI on EGLFS without a desktop: 1080p at 60 fps, 4K by scaling, keyboard input, and what the platform needs for it |
+| `docs/05-development.md` | the development loop: deploy, logs, screenshots and key presses with `scripts/board.sh` |
 
 `CLAUDE.local.md` (git-ignored) holds the board's network address and how to log in. Read it before touching
 the board; if it is missing, ask the developer.
@@ -35,6 +36,9 @@ the board; if it is missing, ask the developer.
 The board is the only test machine, and SSH is the only way in when nobody is at the TV.
 
 - Log in with `ssh root@<board>`; key login works from the developer's PC.
+- Run the app with `scripts/board.sh deploy`, and check it with `scripts/board.sh shot` (then read
+  `screenshots/latest.png`) and `scripts/board.sh keys`. The developer prefers not to sit at the TV, and the TV may
+  be off (docs/05-development.md).
 - Never flash the board or change the bootloader, the partitions or the boot partition without the developer's
   go-ahead in that conversation, and never before the backup from step 0.2 exists.
 - Never cut off the way in: no changes to networking, sshd or a firewall without a tested way back.
