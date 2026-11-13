@@ -39,7 +39,7 @@ The board is the only test machine, and SSH is the only way in when nobody is at
 - Keep GNOME installed until Phase 1 is done; it is the way back if the TV app fails at boot.
 - The vendor's Rockchip packages (MPP, libmali, RGA and the patched GStreamer and libdrm) are held by apt.
   Never upgrade, unhold or replace them.
-- `/` is nearly full: build trees, test media and downloads go to `/userdata`.
+- `/` is small (about 2 GB free): build trees, test media and downloads go to `/userdata`.
 - Never switch Bluetooth off (rfkill) on the board; the chip then loses its firmware. Recovery is in
   `docs/02-board.md`.
 

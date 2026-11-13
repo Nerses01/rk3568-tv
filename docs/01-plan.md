@@ -1,8 +1,7 @@
 # Plan
 
-Status on 2026-11-13: step 0.2 (backup) is done. The whole eMMC is on the PC with matching checksums, and the
-restore route for a board that doesn't boot is rehearsed (02-board.md, "Backup and restore"). Still open: a
-second copy of the backup off the PC. Next: step 0.3.
+Status on 2026-11-13: steps 0.2 (backup) and 0.3 (board housekeeping) are done. Still open from 0.2: a second
+copy of the backup off the PC. Next: step 0.4.
 
 ## 1. Goal
 
@@ -42,7 +41,7 @@ Surveyed over SSH on 2026-11-11; [02-board.md](02-board.md) has the details.
 |---|---|---|
 | Board | appears to be GZPEITE's build of RYD's 8897 mainboard | RYD's specification and device trees describe the hardware; no vendor image matches this board, so our own backup is the only restore source |
 | CPU, RAM | 4× Cortex-A55, 4 GB | enough for a Qt Quick UI; not enough to decode 4K in software |
-| Storage | 16 GB eMMC: `/` 6.5 GB and 93 % full, `/userdata` 7.6 GB | free space first (0.3); builds and media live in `/userdata` |
+| Storage | 16 GB eMMC: `/` 6.5 GB (0.4 GB free, 2.2 GB after 0.3), `/userdata` 7.6 GB | builds and media live in `/userdata` |
 | GPU | Mali-G52, vendor driver `libmali-bifrost-g52-g13p0-x11-gbm` | OpenGL ES under X11 or straight on the screen (KMS/GBM); no Wayland build of the driver is installed |
 | Video decoder | Rockchip MPP 1.5.0 with GStreamer elements (`mppvideodec`) | hardware decoding works through GStreamer |
 | mpv | 0.32, offers only `v4l2m2m-copy` decoders | probably no hardware decoding on this kernel; a fallback to test, not the plan |
@@ -109,6 +108,7 @@ Everything maps to one remote-control model: arrows, OK, Back, Home, Play/Pause,
 app/          Qt Quick application: C++ in src/, QML in qml/
 app/tests/    Qt Test
 system/       systemd units, udev rules and scripts installed on the board
+system/tests/ tests for those scripts, with stub commands (plain sh)
 packaging/    Debian packaging
 scripts/      developer scripts (deploy, logs)
 docs/
@@ -134,8 +134,9 @@ Decide the display and video stack on real measurements before writing the real 
   the restore procedure is in 02-board.md.
 - **0.3 Board housekeeping.** Free space on `/` (target: 2 GB free); create `/userdata/dev` and
   `/userdata/media`; close ADB on the network (port 5555 is open); decide on SSH password login now that key
-  login works; a Bluetooth recovery script in `system/`; test whether the Wi-Fi driver's power saving causes the
-  stalls (with Ethernet as the way back). Done when: all of that holds after a reboot.
+  login works; a Bluetooth recovery script in `system/`. Done when: all of that holds after a reboot. The test
+  of whether the Wi-Fi driver's power saving causes the stalls was left out: it needs an Ethernet cable as the
+  way back, and waits for one.
 - **0.4 HDMI audio.** Enable `hdmi-sound` in the device tree (a changed DTB in the boot partition, or an overlay
   if the vendor's U-Boot reads them). RYD's own device trees for this board set it to `okay` on the same I2S
   controller, so that status may be the only change. Start from the board's own DTB, taken from the backup of
@@ -192,7 +193,7 @@ Decide the display and video stack on real measurements before writing the real 
 | HDMI audio can't be enabled | no sound on the TV | 0.4 early; fallbacks: Bluetooth speaker, analog output |
 | A boot-partition change leaves the board unbootable | board out of action | backup and reflash procedure (0.2) before 0.4 |
 | The backup is lost or damaged | no way back: no vendor image matches this board | checksums in the backup folder; a second copy off the PC |
-| The board's Wi-Fi is slow and stalls | transfers and SSH sessions die; streaming suffers | Ethernet for large transfers; power-saving test in 0.3 |
+| The board's Wi-Fi is slow and stalls | transfers and SSH sessions die; streaming suffers | Ethernet or a USB stick for large transfers; power-saving test once an Ethernet cable is in |
 | An apt upgrade replaces a vendor package | decoding or graphics break | keep apt's holds; never upgrade them |
 | 16 GB eMMC fills up | builds and updates fail | 0.3; builds and media in `/userdata`; USB drives for big media |
 | YouTube changes its interfaces | YouTube stops working | 2.3 picks the most stable route; it is the last source added |
@@ -221,3 +222,7 @@ Decide the display and video stack on real measurements before writing the real 
 | 2026-11-11 | Vendor files stay in the working folder, git-ignored; none is used as a restore source | 19 GB and not ours to publish; no vendor image matches this board's partitions or Wi-Fi; we use RKDevTool, its USB driver, an RK3568 loader and RYD's device trees as reference |
 | 2026-11-12 | `rootfs` and `userdata` copied through a USB stick in the board, in 256 MiB pieces hashed on the board | Wi-Fi would have taken about 6 hours and had stalled under load; the stick needs no network, and the pieces let an interrupted copy resume |
 | 2026-11-13 | Restore route for a board that doesn't boot: RKDevTool v2.86 in loader mode over the USB-C port `J5`; Download Image with Write by Address and an unticked `Loader` row | rehearsed: read-backs matched the backup and a test write landed exactly in `backup`; the Upgrade Firmware tab and the vendor images stay unused |
+| 2026-11-13 | Free space on `/` by removing unused software (Docker, LLVM/Clang 14, Qt Creator, Qt 5 docs and tools, RealVNC, OpenCV's development files), apt's source lists and translations, and most of ext4's root reserve | `/` had 0.4 GB free; nothing of ours, the vendor's or the scale application uses any of it, and apt can bring any of it back. `clang-format` (step 1.1) can run on the PC and in CI |
+| 2026-11-13 | SSH keeps accepting passwords | the developer's choice |
+| 2026-11-13 | Only SSH open on the network: ADB over USB only, the FTP server off | fewer ways in for others; ADB over the USB cable stays as a way in for us |
+| 2026-11-13 | The Wi-Fi power-saving test leaves step 0.3 | changing Wi-Fi settings needs Ethernet as the way back, and no cable is connected |

@@ -14,7 +14,8 @@ IP, MAC and Bluetooth addresses are left out on purpose; they are in the git-ign
 | Ports | seen on the board: USB-C `J5`, the board's only USB device port (ADB and RKDevTool, "Backup and restore"); 2× USB 3.0, stacked (the upper one works as a host; a mouse doesn't work in the lower one, cause unknown); 2× USB 2.0, stacked; Ethernet `NET0`; HDMI; SATA; CAN; an ADC header; microSD and SIM slots; DC jack `J1`; buttons `K1` FLASH, `K2` RST, `K3` PWR. RYD's 8897 specification lists more (LVDS, eDP, M.2, serial ports), not all fitted here |
 | Power | 12 V DC (12–36 V accepted), 5.5/2.1 mm plug |
 | Network in use | Wi-Fi only; both Ethernet ports (`eth0`, `eth1`) have no cable |
-| OS | Ubuntu 22.04.5 LTS, the vendor's image; the only user is `root`, `/home` is empty |
+| OS | Ubuntu 22.04.5 LTS, the vendor's image, changed as listed in "Our changes to the vendor image" |
+| Users | `root`, and `ftpuser` (uid 1000, with a password) for a weighing-scale application in `/userdata/blsRootPath` (291 MB). Nothing starts that application; `/home` is empty |
 | Kernel | 5.10.209, Rockchip BSP |
 | Desktop | GNOME, with Wayland and Xorg sessions installed |
 | GPU driver | `libmali-bifrost-g52-g13p0-x11-gbm` 1.9, proprietary, for X11 and GBM |
@@ -43,7 +44,7 @@ sector is also the address RKDevTool uses.
 | `mmcblk2p5` | `backup` | `0x68000` | 32 MB | | empty (all zeros); the target of the restore rehearsal's write test |
 | `mmcblk2p6` | `gzpeite` | `0x78000` | 16 MB | `/gzpeite` | vendor data (vfat) |
 | `mmcblk2p7` | `logo_rk` | `0x80000` | 68 MB | `/mnt/logo` | boot logo (vfat) |
-| `mmcblk2p8` | `rootfs` | `0xA2000` | 6.5 GB | `/` | 93 % full on 2026-11-11; `/usr` alone is 4.9 GB |
+| `mmcblk2p8` | `rootfs` | `0xA2000` | 6.5 GB | `/` | 2.2 GB free since step 0.3 (0.4 GB before) |
 | `mmcblk2p9` | `oem` | `0xDA2000` | 128 MB | `/oem` | ext4; its superblock changes at every mount ("Backup and restore") |
 | `mmcblk2p10` | `userdata` | `0xDE2000` | 7.6 GB | `/userdata` | room for builds and media |
 | | | `0x1D1EFC0` | 32 KB | | after `userdata`: the backup GPT |
@@ -53,11 +54,26 @@ main area.
 
 ## Access
 
-- SSH as `root`, with the developer's key from the PC. sshd also accepts passwords (step 0.3 decides whether
-  it should).
-- TCP port 5555 (ADB) is open on the network. Step 0.3 closes it.
+- SSH as `root`, with the developer's key from the PC. sshd also accepts passwords, for `root` and `ftpuser`;
+  kept on purpose (decisions log).
+- On the network, only SSH (port 22) is open since step 0.3; ADB (5555) and FTP (21) are closed.
 - USB: with the USB-C port `J5` cabled to a PC, Windows shows the running board as "Android ADB Interface" (USB
   `2207:0006`). `adb shell` over that cable is a possible way in without the network; not tried yet.
+
+## Our changes to the vendor image
+
+All made in step 0.3 (2026-11-13). Copies of the edited files as the vendor shipped them are in
+`/root/rk3568-tv-orig/`.
+
+| Change | Undo |
+|---|---|
+| Removed 202 packages that nothing of ours, the vendor's or the scale application uses: Docker, LLVM/Clang 14, Qt Creator, Qt 5 docs and tools, RealVNC server, `libraspberrypi-dev`, OpenCV's development files and `python3-opencv` with the science libraries they pulled in. apt's log of it is `/var/log/rk3568-tv-cleanup.log` | `apt install` the package |
+| apt reads no source-package lists (the `deb-src` lines in `/etc/apt/sources.list` are commented out) and no translations, and keeps no source-package cache (`/etc/apt/apt.conf.d/99rk3568-tv-space`) | restore `sources.list` from the copy, delete the file |
+| ext4's reserve for root on `/` lowered from 5 % to 1 % (`tune2fs -m 1 /dev/mmcblk2p8`) | `tune2fs -m 5 /dev/mmcblk2p8` |
+| ADB no longer listens on the network: `/etc/profile.d/adbd.sh` no longer sets `ADB_TCP_PORT=5555`. `usbdevice.service` starts `adbd` and reads that file; ADB over USB is unaffected | restore the file, `systemctl restart usbdevice` |
+| The FTP server for the scale application's folder is off (`systemctl disable --now vsftpd`) | `systemctl enable --now vsftpd` |
+| `bt-recover` installed in `/usr/local/sbin` (Known faults) | delete it |
+| `/userdata/dev` and `/userdata/media` created | |
 
 ## Vendor files
 
@@ -219,7 +235,8 @@ Uploads from the board over Wi-Fi ran at about 150 KB/s (SSH, 2.4 GHz, 2026-11-1
 within a second of starting: the board stayed associated with the access point but passed no traffic, and
 NetworkManager noticed only minutes later (state `CONNECTED_SITE`). Reconnecting fixed it, from the desktop's Wi-Fi
 menu or with `nmcli connection up <name>`. The driver's power saving is at its highest setting
-(`/sys/module/*/parameters/rtw_power_mgnt` is `2`), a likely suspect, not yet tested. Use Ethernet for large
+(`/sys/module/*/parameters/rtw_power_mgnt` is `2`), a likely suspect, not yet tested. Testing it means changing
+Wi-Fi settings, so it waits for an Ethernet cable as the way back. Use Ethernet or a USB stick for large
 transfers.
 
 ### Bluetooth won't turn on from the desktop
@@ -231,17 +248,16 @@ Cause: Bluetooth was switched off in software (rfkill soft block, from the deskt
 switch). That powers the chip down and it loses the firmware `rtk_hciattach` loaded at boot. Unblocking powers
 it up again without firmware, and the `rtk_hciattach` still running from boot can't reach it.
 
-Fix, as root (the same steps `wifibt-init.sh` takes at boot):
+Fix: run `bt-recover` as root. It is [system/bt-recover.sh](../system/bt-recover.sh), installed as
+`/usr/local/sbin/bt-recover`, and takes the steps `wifibt-init.sh` takes at boot:
 
-```sh
-rfkill unblock bluetooth
-hciconfig hci0 down 2>/dev/null; killall -q -9 rtk_hciattach
-R=$(grep -rl '^bluetooth$' /sys/class/rfkill/*/type | sed 's/type$/state/')
-echo 0 | tee $R >/dev/null; echo 0 > /proc/bluetooth/sleep/btwrite; sleep .5
-echo 1 | tee $R >/dev/null; echo 1 > /proc/bluetooth/sleep/btwrite; sleep .5
-systemd-run --unit=rtk-hciattach rtk_hciattach -n -s 115200 /dev/ttyS8 rtk_h5
-sleep 5; hciconfig hci0 up; bluetoothctl power on
-```
+1. unblock;
+2. stop the old `rtk_hciattach`;
+3. power the chip off and on;
+4. start `rtk_hciattach` again as the unit `rtk-hciattach`, which loads the firmware;
+5. bring `hci0` up and power it on in BlueZ.
+
+It exits 0 when Bluetooth is back. Run live on 2026-11-13, it took 2 seconds, and a scan found devices afterwards.
 
 A reboot also fixes it: the saved rfkill state is "unblocked", so `wifibt-init.service` starts Bluetooth
 normally. `wifibt-init.sh start_bt` does not help on a running system: it sees `hci0` and only tries to bring
