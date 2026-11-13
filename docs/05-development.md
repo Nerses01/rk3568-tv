@@ -103,7 +103,7 @@ installs the packages it needs.
 
 | Where | How | Takes |
 |---|---|---|
-| GitHub, every push and pull request | [.github/workflows/ci.yml](../.github/workflows/ci.yml), on GitHub's arm64 runner `ubuntu-22.04-arm` | |
+| GitHub, every push and pull request | [.github/workflows/ci.yml](../.github/workflows/ci.yml), on GitHub's arm64 runner `ubuntu-22.04-arm` | 48 s, packages included (first run, 2026-11-13) |
 | The PC, before a commit | `sh scripts/in-docker.sh sh scripts/ci.sh` (VS Code task "CI in Docker") | 67 s from scratch, 17 s after |
 | The board, the app's tests only | `sh scripts/board.sh test` | 56–74 s |
 
