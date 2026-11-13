@@ -1,6 +1,8 @@
 # Plan
 
-Status on 2026-11-11: planning done, Phase 0 starts with step 0.2.
+Status on 2026-11-13: step 0.2 (backup) is done. The whole eMMC is on the PC with matching checksums, and the
+restore route for a board that doesn't boot is rehearsed (02-board.md, "Backup and restore"). Still open: a
+second copy of the backup off the PC. Next: step 0.3.
 
 ## 1. Goal
 
@@ -38,16 +40,18 @@ Surveyed over SSH on 2026-11-11; [02-board.md](02-board.md) has the details.
 
 | | Found | What it means for us |
 |---|---|---|
+| Board | appears to be GZPEITE's build of RYD's 8897 mainboard | RYD's specification and device trees describe the hardware; no vendor image matches this board, so our own backup is the only restore source |
 | CPU, RAM | 4× Cortex-A55, 4 GB | enough for a Qt Quick UI; not enough to decode 4K in software |
 | Storage | 16 GB eMMC: `/` 6.5 GB and 93 % full, `/userdata` 7.6 GB | free space first (0.3); builds and media live in `/userdata` |
 | GPU | Mali-G52, vendor driver `libmali-bifrost-g52-g13p0-x11-gbm` | OpenGL ES under X11 or straight on the screen (KMS/GBM); no Wayland build of the driver is installed |
 | Video decoder | Rockchip MPP 1.5.0 with GStreamer elements (`mppvideodec`) | hardware decoding works through GStreamer |
 | mpv | 0.32, offers only `v4l2m2m-copy` decoders | probably no hardware decoding on this kernel; a fallback to test, not the plan |
 | Qt | Qt 6.2.4 and Qt 5.15.3 in Ubuntu's apt | no Qt build needed to start |
-| HDMI audio | `hdmi-sound` disabled in the device tree; only the analog RK809 codec | must be enabled (0.4) |
+| HDMI audio | `hdmi-sound` disabled in the device tree; only the analog RK809 codec | must be enabled (0.4); RYD's device trees for the board enable it |
 | HDMI-CEC | `/dev/cec0` and an `hdmi_cec_key` input device | the TV's remote can drive the app |
 | IR receiver | a PWM IR input device | a cheap IR remote can work |
-| Wi-Fi, Bluetooth | Realtek RTL8821CS, Bluetooth over UART | works; one known fault after the desktop's toggle (02-board.md) |
+| Wi-Fi, Bluetooth | Realtek RTL8821CS, Bluetooth over UART | works, but Wi-Fi uploads run at about 150 KB/s and stalled once under load; Bluetooth has one known fault after the desktop's toggle (02-board.md) |
+| Ethernet | two gigabit ports, no cable yet | the fast, dependable link for large transfers and, later, streaming |
 | Toolchain | gcc 11.4, CMake, Ninja, git | we can build on the board itself |
 
 ## 4. Technical approach
@@ -95,6 +99,7 @@ Everything maps to one remote-control model: arrows, OK, Back, Home, Play/Pause,
 ### 4.6 Build, deploy, update
 
 - Start by building on the board, in `/userdata`, from VS Code Remote-SSH; step 0.7 settles the loop.
+- Large transfers (backups, test media) go over Ethernet or a USB drive; the board's Wi-Fi is too slow for them.
 - CI on GitHub Actions' arm64 runners builds and tests every push and produces a `.deb` (step 1.8).
 - Installing is `apt install ./rk3568-tv_<version>_arm64.deb`; Phase 3 adds updates from GitHub Releases.
 
@@ -118,15 +123,24 @@ Each step ends with its "done when" met and one commit.
 Decide the display and video stack on real measurements before writing the real UI.
 
 - **0.1 Repository and plan.** Done when: this repository, its plan and its board notes are on GitHub.
-- **0.2 Backup.** Copy the eMMC partitions to the PC (method chosen in the step: `dd` over SSH, or RKDevTool in
-  loader mode) and learn the RKDevTool route that reflashes a board that no longer boots. Done when: the
-  images are on the PC with matching checksums and the restore procedure is in 02-board.md.
+- **0.2 Backup.** Copy every sector of the eMMC to the PC (outside the repository) with `dd` over SSH: one
+  gzip-compressed image per region, from the 8 MB before `uboot` to the backup GPT at the end, plus the eMMC's two
+  boot areas. The board hashes exactly the bytes it sends; the PC must get the same SHA-256 and byte count.
+  Regions nothing writes to are read a second time and must match again; `/` and `/userdata` are copied while
+  mounted, so their images are checked with `e2fsck` instead. The mounted partitions go over Ethernet or a USB
+  drive, since Wi-Fi is too slow. Then rehearse the route for a board that no longer boots: RKDevTool (from the
+  vendor files) in loader mode reads regions back to compare checksums; optionally it writes the empty `backup`
+  partition back. Done when: every region is on the PC with matching checksums, the rehearsal has passed, and
+  the restore procedure is in 02-board.md.
 - **0.3 Board housekeeping.** Free space on `/` (target: 2 GB free); create `/userdata/dev` and
   `/userdata/media`; close ADB on the network (port 5555 is open); decide on SSH password login now that key
-  login works; a Bluetooth recovery script in `system/`. Done when: all of that holds after a reboot.
+  login works; a Bluetooth recovery script in `system/`; test whether the Wi-Fi driver's power saving causes the
+  stalls (with Ethernet as the way back). Done when: all of that holds after a reboot.
 - **0.4 HDMI audio.** Enable `hdmi-sound` in the device tree (a changed DTB in the boot partition, or an overlay
-  if the vendor's U-Boot reads them). Needs 0.2. Done when: `aplay -l` lists HDMI and a test tone plays on the
-  TV after a reboot.
+  if the vendor's U-Boot reads them). RYD's own device trees for this board set it to `okay` on the same I2S
+  controller, so that status may be the only change. Start from the board's own DTB, taken from the backup of
+  `boot`, not from RYD's, whose kernel (4.19) differs. Needs 0.2. Done when: `aplay -l` lists HDMI and a test
+  tone plays on the TV after a reboot.
 - **0.5 Video spike.** Freely licensed test clips (for example the Blender Foundation's open movies) in
   H.264, H.265 and VP9 at 1080p and 4K. First `gst-launch-1.0` with `mppvideodec` straight to the screen,
   measuring CPU use and dropped frames; then candidates A, B and C (§4.3) in a throwaway Qt Quick app. Done
@@ -177,6 +191,8 @@ Decide the display and video stack on real measurements before writing the real 
 | The Mali driver doesn't work with Qt's EGLFS | no desktop-free start | spike 0.6; fallback to a minimal X11 session |
 | HDMI audio can't be enabled | no sound on the TV | 0.4 early; fallbacks: Bluetooth speaker, analog output |
 | A boot-partition change leaves the board unbootable | board out of action | backup and reflash procedure (0.2) before 0.4 |
+| The backup is lost or damaged | no way back: no vendor image matches this board | checksums in the backup folder; a second copy off the PC |
+| The board's Wi-Fi is slow and stalls | transfers and SSH sessions die; streaming suffers | Ethernet for large transfers; power-saving test in 0.3 |
 | An apt upgrade replaces a vendor package | decoding or graphics break | keep apt's holds; never upgrade them |
 | 16 GB eMMC fills up | builds and updates fail | 0.3; builds and media in `/userdata`; USB drives for big media |
 | YouTube changes its interfaces | YouTube stops working | 2.3 picks the most stable route; it is the last source added |
@@ -190,6 +206,8 @@ Decide the display and video stack on real measurements before writing the real 
 4. The TV or monitor: does it have 4K, HDR, HDMI-CEC? Its remote decides how much 1.7 gives.
 5. Is there a Jellyfin or Plex server at home, or a NAS with media?
 6. Is there an IR remote to use, or will one be bought?
+7. Can GZPEITE supply this board's factory image and its kernel source? Not needed now; it would give a second
+   restore source and the board's exact device tree.
 
 ## 8. Decisions log
 
@@ -199,3 +217,7 @@ Decide the display and video stack on real measurements before writing the real 
 | 2026-11-11 | C++20 and Qt Quick | the developer's language; Qt Quick draws a GPU interface without a desktop |
 | 2026-11-11 | Start with Ubuntu's Qt 6.2.4 | in apt, nothing to build; revisit only if 0.5 or 0.6 finds a blocker |
 | 2026-11-11 | Public repository on GitHub | the developer's choice; addresses and logins stay in git-ignored files |
+| 2026-11-11 | Back up with `dd` over SSH, one compressed image per region; rehearse the restore with RKDevTool | no reboot or cable for the copy, and the unmounted regions come out exact; RKDevTool proves the route for a board that no longer boots |
+| 2026-11-11 | Vendor files stay in the working folder, git-ignored; none is used as a restore source | 19 GB and not ours to publish; no vendor image matches this board's partitions or Wi-Fi; we use RKDevTool, its USB driver, an RK3568 loader and RYD's device trees as reference |
+| 2026-11-12 | `rootfs` and `userdata` copied through a USB stick in the board, in 256 MiB pieces hashed on the board | Wi-Fi would have taken about 6 hours and had stalled under load; the stick needs no network, and the pieces let an interrupted copy resume |
+| 2026-11-13 | Restore route for a board that doesn't boot: RKDevTool v2.86 in loader mode over the USB-C port `J5`; Download Image with Write by Address and an unticked `Loader` row | rehearsed: read-backs matched the backup and a test write landed exactly in `backup`; the Upgrade Firmware tab and the vendor images stay unused |

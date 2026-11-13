@@ -12,6 +12,12 @@ out/
 .DS_Store
 Thumbs.db
 
+# Vendor files (SDK, firmware, datasheets): large, and not ours to publish
+/RK3568/
+/scaleFirmware/
+*.img
+*.img.gz
+
 # Machine-specific notes and secrets: never in git
 CLAUDE.local.md
 .env

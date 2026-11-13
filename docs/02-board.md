@@ -1,16 +1,19 @@
 # The board
 
-Facts gathered over SSH on 2026-11-11. This repository is public, so the board's IP, MAC and Bluetooth
-addresses are left out on purpose; they are in the git-ignored `CLAUDE.local.md`.
+Facts gathered over SSH and at the board from 2026-11-11 to 2026-11-13. This repository is public, so the board's
+IP, MAC and Bluetooth addresses are left out on purpose; they are in the git-ignored `CLAUDE.local.md`.
 
 ## Hardware and software
 
 | | |
 |---|---|
-| Board | GZPEITE RK3568 P01 (`/proc/device-tree/model`) |
+| Board | GZPEITE RK3568 P01 (`/proc/device-tree/model`); appears to be GZPEITE's build of RYD's 8897 mainboard ("Vendor files" below) |
 | SoC | Rockchip RK3568: 4× Cortex-A55, Mali-G52 GPU, hardware decoding of H.264, H.265 and VP9 up to 4K |
 | RAM | 4 GB |
 | Storage | 16 GB eMMC (`mmcblk2`), partitions below |
+| Ports | seen on the board: USB-C `J5`, the board's only USB device port (ADB and RKDevTool, "Backup and restore"); 2× USB 3.0, stacked (the upper one works as a host; a mouse doesn't work in the lower one, cause unknown); 2× USB 2.0, stacked; Ethernet `NET0`; HDMI; SATA; CAN; an ADC header; microSD and SIM slots; DC jack `J1`; buttons `K1` FLASH, `K2` RST, `K3` PWR. RYD's 8897 specification lists more (LVDS, eDP, M.2, serial ports), not all fitted here |
+| Power | 12 V DC (12–36 V accepted), 5.5/2.1 mm plug |
+| Network in use | Wi-Fi only; both Ethernet ports (`eth0`, `eth1`) have no cable |
 | OS | Ubuntu 22.04.5 LTS, the vendor's image; the only user is `root`, `/home` is empty |
 | Kernel | 5.10.209, Rockchip BSP |
 | Desktop | GNOME, with Wayland and Xorg sessions installed |
@@ -27,26 +30,197 @@ addresses are left out on purpose; they are in the git-ignored `CLAUDE.local.md`
 
 ## eMMC partitions
 
-| Partition | Label | Size | Mounted at | Notes |
-|---|---|---|---|---|
-| `mmcblk2p1` | `uboot` | 4 MB | | bootloader: never touch |
-| `mmcblk2p2` | `misc` | 4 MB | | boot-mode flags (recovery) |
-| `mmcblk2p3` | `boot` | 64 MB | | kernel and device tree; step 0.4 changes it |
-| `mmcblk2p4` | `recovery` | 128 MB | | |
-| `mmcblk2p5` | `backup` | 32 MB | | |
-| `mmcblk2p6` | `gzpeite` | 16 MB | `/gzpeite` | vendor data |
-| `mmcblk2p7` | `logo_rk` | 68 MB | `/mnt/logo` | boot logo |
-| `mmcblk2p8` | `rootfs` | 6.5 GB | `/` | 93 % full on 2026-11-11; `/usr` alone is 4.9 GB |
-| `mmcblk2p9` | `oem` | 128 MB | `/oem` | |
-| `mmcblk2p10` | `userdata` | 7.6 GB | `/userdata` | room for builds and media |
+GPT, 512-byte sectors, 30,535,680 sectors in all (15.6 GB). The partitions follow each other without gaps. The start
+sector is also the address RKDevTool uses.
+
+| Partition | Label | Start sector | Size | Mounted at | Notes |
+|---|---|---|---|---|---|
+| | | `0x0` | 8 MB | | before `uboot`: protective MBR, GPT, the first-stage loader (DDR init and SPL) and Rockchip's vendor storage; in no partition, so a partition-only copy misses it |
+| `mmcblk2p1` | `uboot` | `0x4000` | 4 MB | | bootloader: never touch |
+| `mmcblk2p2` | `misc` | `0x6000` | 4 MB | | boot-mode flags (recovery); nearly empty |
+| `mmcblk2p3` | `boot` | `0x8000` | 64 MB | | kernel and device tree (FIT image); step 0.4 changes it |
+| `mmcblk2p4` | `recovery` | `0x28000` | 128 MB | | |
+| `mmcblk2p5` | `backup` | `0x68000` | 32 MB | | empty (all zeros); the target of the restore rehearsal's write test |
+| `mmcblk2p6` | `gzpeite` | `0x78000` | 16 MB | `/gzpeite` | vendor data (vfat) |
+| `mmcblk2p7` | `logo_rk` | `0x80000` | 68 MB | `/mnt/logo` | boot logo (vfat) |
+| `mmcblk2p8` | `rootfs` | `0xA2000` | 6.5 GB | `/` | 93 % full on 2026-11-11; `/usr` alone is 4.9 GB |
+| `mmcblk2p9` | `oem` | `0xDA2000` | 128 MB | `/oem` | ext4; its superblock changes at every mount ("Backup and restore") |
+| `mmcblk2p10` | `userdata` | `0xDE2000` | 7.6 GB | `/userdata` | room for builds and media |
+| | | `0x1D1EFC0` | 32 KB | | after `userdata`: the backup GPT |
+
+The eMMC's hardware boot areas `mmcblk2boot0` and `mmcblk2boot1` (4 MB each) are empty; the RK3568 boots from the
+main area.
 
 ## Access
 
 - SSH as `root`, with the developer's key from the PC. sshd also accepts passwords (step 0.3 decides whether
   it should).
 - TCP port 5555 (ADB) is open on the network. Step 0.3 closes it.
+- USB: with the USB-C port `J5` cabled to a PC, Windows shows the running board as "Android ADB Interface" (USB
+  `2207:0006`). `adb shell` over that cable is a possible way in without the network; not tried yet.
+
+## Vendor files
+
+The developer's vendor files sit in the repository's working folder under `RK3568/` and `scaleFirmware/`. They are
+git-ignored: 19 GB, and not ours to publish. Examined on 2026-11-11:
+
+| Item | What it is | Use for us |
+|---|---|---|
+| `RK3568/8897C_RYD-3568 Mainboard product specification.pdf.pdf` | RYD's specification of its 8897 mainboard | ports and power. Its OTG port, the lower USB 3.0, is not this board's: here it is the USB-C `J5` |
+| `RK3568/RK356x Linux SDK 编译指导.pdf` | RYD's build guide for its SDK, in Chinese | background |
+| `RK3568/rk356x_linux_sdk.tar.gz00` | part 1 of 3 of RYD's RK356x Linux SDK (March 2023, kernel 4.19.193). Parts 2 and 3 are missing, and this part fails its MD5 (an incomplete copy) | reference only: RYD's device trees for the board, `rk3568-8897-ddr4-v1-linux-{base,hdmi,edp}.dts`, can be read from this part |
+| `scaleFirmware/RKDevTool_Release_v2.86/`, `scaleFirmware/RKDevTool_v3.19_for_window/` | Rockchip's flashing tool for Windows, with logs of earlier use | the restore route; v2.86 rehearsed on 2026-11-13 ("Backup and restore") |
+| `scaleFirmware/DriverAssitant_v5.11/` (and v4.91) | Rockchip's USB driver installer | needed by RKDevTool |
+| `…/RK3568-8897-Ubuntu2004-8G-20240521/update.img` | RYD's Ubuntu 20.04 firmware for the 8897 board, built 2024-08-21, kernel 5.10, CW2438 Wi-Fi module | not for this board (other partition layout, other Wi-Fi); contains an RK3568 loader (DDR init V1.11), which RKDevTool needs in its unticked `Loader` row |
+| `scaleFirmware/RKDevTool_Release_v2.86/update.img` | an RK3568 Ubuntu 20.04 build with a read-only squashfs root, built 2025-01-22 | not for this board; contains an RK3568 loader, a candidate for maskrom mode (untested) |
+| `…/boot.img`, `…/ubuntu-1804.img`, `…/ubuntu20.04/rootfs/ubuntu-2004.img` | RYD's 8897 kernel (4.19.193) and two ext4 root filesystems | not used |
+| `scaleFirmware/pcs_1808_v1.8_v4.8/` | firmware for an RK1808 device | unrelated |
+
+Why the board appears to be an 8897: the same two Ethernet ports, CAN and IR receiver, and these are the vendor files
+the developer has for it. Its Wi-Fi chip, partition layout (`gzpeite`, `logo_rk`) and system (Ubuntu 22.04, kernel
+5.10.209, a `gpio_gzpeite` driver) are GZPEITE's own. **No vendor image matches this board**; flashing one with
+"Upgrade Firmware" would repartition the eMMC and replace the system. Our own backup is the only full restore source.
+
+RYD's device trees enable `hdmi_sound` (`status = "okay"`) in both their HDMI and eDP variants; this board's device
+tree disables it (step 0.4).
+
+## Backup and restore
+
+### The backup
+
+Taken on 2026-11-11 and 2026-11-12, kept on the developer's PC in `C:\rk3568-backup\2026-11-11\`, outside the
+repository. It holds the board's secrets (the Wi-Fi password, SSH host keys, root's password hash, the board's
+addresses), so it never goes into the repository or anywhere public.
+
+| File | Content |
+|---|---|
+| `head.img.gz` | sectors `0x0` to `0x3FFF`: protective MBR, GPT, first-stage loader, vendor storage |
+| `p01-uboot.img.gz` … `p09-oem.img.gz` | one image per partition, except the two below |
+| `p08-rootfs.cNN.img.gz`, `p10-userdata.cNN.img.gz` | 256 MiB pieces; in order they give the partition: `cat p10-userdata.c*.img.gz \| gzip -dc` |
+| `tail.img.gz` | the last 64 sectors: the backup GPT |
+| `boot0.img.gz`, `boot1.img.gz` | the eMMC's boot areas (empty) |
+| `SHA256SUMS` | SHA-256 of every uncompressed image, of every piece, and of `p08` and `p10` whole |
+| `layout.txt` | start sector and size of every image |
+| `backup.log`, `overnight.log`, `fsck.log` | how each region was read and checked, and the rehearsal below |
+| `tools/` | the scripts that took the backup |
+
+How it was checked:
+
+- For every region the board hashed exactly the bytes it sent, and the PC got the same SHA-256 and byte count.
+  `rootfs` and `userdata` went through a USB stick in the board, since Wi-Fi was too slow.
+- The regions that don't change were read a second time and matched, most recently on 2026-11-13.
+- `rootfs` and `userdata` were copied while mounted, so their images look like the disk after a power cut.
+  `e2fsck -fy` on a copy replays the journal, and both come out clean (`fsck.log`).
+
+`gzpeite`, `logo_rk` and `oem` are mounted read-write at every boot. ext4 on `oem` then updates its superblock,
+the start of its journal and its root folder's access time, so a fresh read of `oem` no longer matches its backup
+even though no file changed. The FAT partitions `gzpeite` and `logo_rk` have stayed the same so far.
+
+### Restore while Ubuntu runs: `dd`
+
+1. Check the image on the PC (Git Bash, in the backup folder): `gzip -dc p03-boot.img.gz | sha256sum` must
+   give the `p03-boot.img` line of `SHA256SUMS`.
+2. Unmount the partition if it is mounted (`umount /oem` and so on). `/` can't be restored from the running
+   system; use RKDevTool for it.
+3. Write it, addressed by partition label so that a typo can't reach another partition:
+
+   ```sh
+   gzip -dc p03-boot.img.gz | ssh root@<board> 'dd of=/dev/disk/by-partlabel/boot bs=4M conv=fsync'
+   ```
+
+   Over Wi-Fi this suits the small images. `userdata` is too big for Wi-Fi: put its repaired image (below) on
+   an NTFS-formatted USB stick and run the `dd` on the board. FAT32 can't hold a file over 4 GiB, and the
+   board's kernel has no exFAT.
+4. Check: `ssh root@<board> 'sync; echo 3 > /proc/sys/vm/drop_caches; sha256sum < /dev/disk/by-partlabel/boot'`
+   gives the SHA-256 of the image written: the one from step 1, or for a repaired image (below) its own. Then
+   reboot.
+
+Before writing `rootfs` or `userdata`, join the pieces and repair the copy on the PC (in WSL), as `fsck.log`
+did. The repair does what a boot after a power cut would do (replay the journal, clear orphaned files); done
+first, the board starts from a clean filesystem.
+
+```sh
+cat p10-userdata.c*.img.gz | gzip -dc > p10-userdata.img
+e2fsck -fy p10-userdata.img
+```
+
+`head` and `tail` lie outside the partitions (`dd of=/dev/mmcblk2 bs=512 count=16384` for `head`,
+`seek=30535616` for `tail`). They hold the partition table and the first-stage loader; write them only if
+those are damaged.
+
+### Restore when Ubuntu doesn't boot: RKDevTool
+
+Rehearsed on 2026-11-13 (`backup.log`):
+
+- Reading back the start of the eMMC and the first 8 MiB of `boot` gave the backup's checksums.
+- A 1 MiB test file written to `backup` landed exactly there, and no other region changed.
+- `backup` was then zeroed again.
+
+What it needs:
+
+- Windows with Rockchip's USB driver (`DriverAssitant_v5.11`) and RKDevTool v2.86, both from the vendor files.
+- A USB-A to USB-C cable: the A end in a USB-A port of the PC, the C end in the board's USB-C port `J5`, next to
+  the USB 3.0 pair. The lower USB 3.0 port, which RYD's specification calls OTG, gave no connection with an A-to-A
+  cable. The jumper beside `J5` was left as found.
+- With Ubuntu running, RKDevTool then says "Found One ADB Device".
+
+Loader mode:
+
+- From Ubuntu: `systemctl reboot --reboot-argument=loader`. Windows shows "Rockusb Device" (USB `2207:350A`),
+  RKDevTool says "Found One LOADER Device".
+- Without Ubuntu: hold FLASH (`K1`) while switching on. Tried once, before `J5` was found: Ubuntu didn't start,
+  so probably loader mode, but the PC never saw it.
+- ResetDevice (Advanced Function tab) leaves loader mode and boots normally.
+
+Reading (Advanced Function tab): Start and Count in sectors, in hex, then ExportImage. The file goes to
+`Output\ExportImage.img` in the tool's folder and replaces the one before. 8 MiB at a time works; 64 MiB was
+refused ("device did not support to read").
+
+Writing (Download Image tab):
+
+1. Right-click the list and choose Clear Items. The tool loads the vendor's old rows from its `config.cfg`;
+   never run them.
+2. Add Item: name `Loader`, address `0x00000000`, path an RK3568 loader (below), **unticked**. Without a row
+   named `Loader` the tool stops ("Loading loader failed") and closes. Ticked, the row would replace the board's
+   own loader.
+3. Add Item for each region to restore: address = its start sector (table above, or `layout.txt`), path = the
+   uncompressed image (for `rootfs` and `userdata`, joined and repaired as above), ticked.
+4. Tick Write by Address and press Run. The log shows "Test Device Success" and "Download image OK"; then the
+   board restarts by itself.
+5. Check each region over SSH, as in step 4 of the `dd` route.
+
+Only the write to `backup` has been tested. Writing `head` or `uboot` this way, and maskrom mode (a board with no
+working loader on the eMMC), have not. In maskrom mode the loader must first run from RAM, and which of the
+vendor's loaders sets up this board's memory is unknown.
+
+Never use the Upgrade Firmware tab (a vendor `update.img` would repartition the eMMC and replace the system),
+EraseFlash, EraseAll, EraseLBA, Go Maskrom or Switch Storage.
+
+The loader: each vendor `update.img` carries one. Its offset and length are 32-bit little-endian numbers at bytes
+25 and 29 of the file. Both are already extracted in `C:\rk3568-backup\loaders\`:
+
+```sh
+f=update.img
+off=$(od -A n -t u4 -j 25 -N 4 "$f" | tr -d ' ')
+len=$(od -A n -t u4 -j 29 -N 4 "$f" | tr -d ' ')
+tail -c +$((off + 1)) "$f" | head -c "$len" > loader.bin   # starts with "LDR "
+```
 
 ## Known faults and fixes
+
+### Load average of 5 at idle
+
+Not a fault. Five threads of the Wi-Fi driver (`RTW_XMIT_THREAD`, `RTW_RECV_THREAD`, `RTW_CMD_THREAD`, two
+`RTWHALXT`) wait in uninterruptible sleep from boot on. Linux counts them in the load average; they use no CPU.
+
+### Wi-Fi is slow and can stall
+
+Uploads from the board over Wi-Fi ran at about 150 KB/s (SSH, 2.4 GHz, 2026-11-11). Once, a bulk transfer stopped
+within a second of starting: the board stayed associated with the access point but passed no traffic, and
+NetworkManager noticed only minutes later (state `CONNECTED_SITE`). Reconnecting fixed it, from the desktop's Wi-Fi
+menu or with `nmcli connection up <name>`. The driver's power saving is at its highest setting
+(`/sys/module/*/parameters/rtw_power_mgnt` is `2`), a likely suspect, not yet tested. Use Ethernet for large
+transfers.
 
 ### Bluetooth won't turn on from the desktop
 
