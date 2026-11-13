@@ -59,7 +59,11 @@ main area.
   kept on purpose (decisions log).
 - On the network, only SSH (port 22) is open since step 0.3; ADB (5555) and FTP (21) are closed.
 - USB: with the USB-C port `J5` cabled to a PC, Windows shows the running board as "Android ADB Interface" (USB
-  `2207:0006`). `adb shell` over that cable is a possible way in without the network; not tried yet.
+  `2207:0006`). `adb shell` over that cable gives a root shell without the network (tried 2026-11-13). It is the
+  way to join the board to a new Wi-Fi network:
+  `adb shell "nmcli device wifi connect '<SSID>' password '<password>' ifname wlan0"`, then
+  `adb shell ip -4 addr show wlan0` for the new address. NetworkManager keeps every network joined this way and
+  joins whichever is in range at boot.
 
 ## Our changes to the vendor image
 
