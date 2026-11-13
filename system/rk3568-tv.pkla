@@ -1,0 +1,8 @@
+# The TV app manages Wi-Fi (step 1.6): NetworkManager asks polkit, and polkit 0.105 (Ubuntu 22.04) reads this from
+# /etc/polkit-1/localauthority/50-local.d/. Only for the user tv, and only NetworkManager's actions.
+[rk3568-tv: the TV app may manage Wi-Fi]
+Identity=unix-user:tv
+Action=org.freedesktop.NetworkManager.*
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes

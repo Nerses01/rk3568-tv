@@ -8,7 +8,8 @@ hardware decoder.
 
 **Status:** Phase 1 has begun. The groundwork on the board is done; the board boots into the app, which has a home
 screen, navigation with the remote's keys, a video player (hardware-decoded H.264, H.265 and VP9 up to 4K60, sound
-and subtitle tracks, resume) and an About page, with tests and CI. USB drives and the rest of Settings come next.
+and subtitle tracks, resume) and Settings (Wi-Fi, Bluetooth, the screen mode, About), with tests and CI. The TV's
+remote over HDMI-CEC comes next; USB drives later.
 There is no package to install yet. The plan is in [docs/01-plan.md](docs/01-plan.md); how to build and run the app is in
 [docs/05-development.md](docs/05-development.md).
 

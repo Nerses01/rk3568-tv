@@ -13,6 +13,7 @@ set -u
 here=$(cd "$(dirname "$0")" && pwd)
 root=${RK3568_TV_ROOT:-}
 home=/var/lib/rk3568-tv
+polkit=/etc/polkit-1/localauthority/50-local.d/rk3568-tv.pkla
 
 die() {
     echo "install: $*" >&2
@@ -24,7 +25,7 @@ case ${1:-} in
     [ -x "$root/usr/local/sbin/rk3568-tv-mode" ] && "$root/usr/local/sbin/rk3568-tv-mode" desktop
     systemctl disable rk3568-tv.service > /dev/null 2>&1
     rm -f "$root/usr/local/bin/rk3568-tv" "$root/etc/systemd/system/rk3568-tv.service" \
-        "$root/usr/local/sbin/rk3568-tv-mode"
+        "$root/usr/local/sbin/rk3568-tv-mode" "$root$polkit"
     rm -rf "$root/usr/local/lib/rk3568-tv" "$root/etc/rk3568-tv"
     systemctl daemon-reload
     echo "install: removed; the user tv and $home stay"
@@ -50,13 +51,19 @@ mkdir -p "$root$home" && chown tv:tv "$root$home" || die "cannot create $home"
 install -D -m 0755 "$binary" "$root/usr/local/bin/rk3568-tv" &&
     install -D -m 0644 "$here/rk3568-tv.service" "$root/etc/systemd/system/rk3568-tv.service" &&
     install -D -m 0755 "$here/rk3568-tv-screen.sh" "$root/usr/local/lib/rk3568-tv/rk3568-tv-screen" &&
-    install -D -m 0755 "$here/rk3568-tv-mode.sh" "$root/usr/local/sbin/rk3568-tv-mode" || die "cannot install the files"
+    install -D -m 0755 "$here/rk3568-tv-mode.sh" "$root/usr/local/sbin/rk3568-tv-mode" &&
+    install -D -m 0644 "$here/rk3568-tv.pkla" "$root$polkit" || die "cannot install the files"
 
-# The screen mode: 1080p at 60 Hz unless chosen otherwise (a screen's preferred mode can be worse: docs/04-ui-spike.md)
-if [ ! -f "$root/etc/rk3568-tv/kms.json" ]; then
-    mkdir -p "$root/etc/rk3568-tv" &&
+# The screen mode, which the app changes (Settings, Display), in tv's home: 1080p at 60 Hz unless chosen otherwise
+# (a screen's preferred mode can be worse: docs/04-ui-spike.md). An older install's in /etc moves there.
+kms=$root$home/kms.json
+if [ ! -f "$kms" ]; then
+    if [ -f "$root/etc/rk3568-tv/kms.json" ]; then
+        mv "$root/etc/rk3568-tv/kms.json" "$kms" && { rmdir "$root/etc/rk3568-tv" 2> /dev/null || true; }
+    else
         printf '%s\n' '{ "device": "/dev/dri/card0", "hwcursor": false, "outputs": [ { "name": "HDMI1", "mode": "1920x1080@60" } ] }' \
-            > "$root/etc/rk3568-tv/kms.json" || die "cannot write the screen mode"
+            > "$kms"
+    fi && chown tv:tv "$kms" || die "cannot write the screen mode"
 fi
 
 systemctl daemon-reload || die "systemctl daemon-reload failed"

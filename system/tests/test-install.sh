@@ -54,18 +54,27 @@ check "the app" executable "$r/usr/local/bin/rk3568-tv"
 check "the unit" has "$r/etc/systemd/system/rk3568-tv.service" "ExecStart=/usr/local/bin/rk3568-tv"
 check "the screen tool, where the unit expects it" executable "$r/usr/local/lib/rk3568-tv/rk3568-tv-screen"
 check "the mode tool" executable "$r/usr/local/sbin/rk3568-tv-mode"
-check "the screen mode: 1080p60" has "$r/etc/rk3568-tv/kms.json" '"mode": "1920x1080@60"'
+check "the screen mode: 1080p60, in tv's home" has "$r/var/lib/rk3568-tv/kms.json" '"mode": "1920x1080@60"'
+check "the screen mode: tv may change it" has "$T/calls" "chown tv:tv $r/var/lib/rk3568-tv/kms.json"
+check "polkit: tv may manage Wi-Fi" has "$r/etc/polkit-1/localauthority/50-local.d/rk3568-tv.pkla" "Identity=unix-user:tv"
 check "systemd reads the unit" has "$T/calls" "systemctl daemon-reload"
 check "the boot isn't changed" sh -c "! grep -qE 'systemctl (enable|set-default|start|mask)' '$T/calls'"
 
-echo '{ "outputs": [ { "name": "HDMI1", "mode": "1280x720@50" } ] }' > "$r/etc/rk3568-tv/kms.json"
+echo '{ "outputs": [ { "name": "HDMI1", "mode": "1280x720@50" } ] }' > "$r/var/lib/rk3568-tv/kms.json"
 printf '#!/bin/sh\necho app 2\n' > "$T/rk3568-tv"
 HAVE_USER=1 run "$T/rk3568-tv"
 check "update: exit 0" status 0
 check "update: the user exists, no new one" hasnt "$T/calls" useradd
 check "update: the groups again" has "$T/calls" "usermod --append --groups video,render,input,audio tv"
 check "update: the new app" has "$r/usr/local/bin/rk3568-tv" "app 2"
-check "update: a chosen screen mode stays" has "$r/etc/rk3568-tv/kms.json" "1280x720@50"
+check "update: a chosen screen mode stays" has "$r/var/lib/rk3568-tv/kms.json" "1280x720@50"
+
+rm "$r/var/lib/rk3568-tv/kms.json"
+mkdir -p "$r/etc/rk3568-tv" && echo '{ "outputs": [ { "name": "HDMI1", "mode": "3840x2160@30" } ] }' > "$r/etc/rk3568-tv/kms.json"
+HAVE_USER=1 run "$T/rk3568-tv"
+check "update from before step 1.6: exit 0" status 0
+check "update from before step 1.6: the screen mode moves to tv's home" has "$r/var/lib/rk3568-tv/kms.json" "3840x2160@30"
+check "update from before step 1.6: nothing left in /etc" absent "$r/etc/rk3568-tv"
 
 run "$T/none"
 check "no binary: exit 1" status 1
@@ -82,6 +91,7 @@ check "remove: the unit" absent "$r/etc/systemd/system/rk3568-tv.service"
 check "remove: the tools" absent "$r/usr/local/lib/rk3568-tv"
 check "remove: the mode tool" absent "$r/usr/local/sbin/rk3568-tv-mode"
 check "remove: the settings" absent "$r/etc/rk3568-tv"
+check "remove: the polkit rule" absent "$r/etc/polkit-1/localauthority/50-local.d/rk3568-tv.pkla"
 check "remove: tv's home stays" has "$r/var/lib/rk3568-tv/screen.edid" EDID
 
 echo "$failures failed"

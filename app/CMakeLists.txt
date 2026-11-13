@@ -44,19 +44,29 @@ qt_add_qml_module(rk3568tv_ui
     RESOURCE_PREFIX /qt/qml
     QML_FILES
         qml/AboutPage.qml
+        qml/BluetoothPage.qml
+        qml/ChoicesPage.qml
         qml/Clock.qml
+        qml/ConfirmModePage.qml
+        qml/DisplayPage.qml
         qml/HomePage.qml
         qml/Main.qml
         qml/MenuRow.qml
-        qml/NotYetPage.qml
+        qml/OnScreenKeyboard.qml
         qml/Page.qml
         qml/PageStack.qml
+        qml/PasswordPage.qml
         qml/PlayerPage.qml
         qml/SettingsPage.qml
         qml/Theme.qml
         qml/Tile.qml
         qml/VideosPage.qml
+        qml/WifiPage.qml
     SOURCES
+        src/bluetooth.cpp
+        src/bluetooth.h
+        src/displaysettings.cpp
+        src/displaysettings.h
         src/remotekeys.cpp
         src/remotekeys.h
         src/systeminfo.cpp
@@ -65,9 +75,13 @@ qt_add_qml_module(rk3568tv_ui
         src/videolibrary.h
         src/videoplayer.cpp
         src/videoplayer.h
+        src/wifi.cpp
+        src/wifi.h
 )
 # C++ that QML doesn't see
 target_sources(rk3568tv_ui PRIVATE
+    src/command.cpp
+    src/command.h
     src/resumepositions.cpp
     src/resumepositions.h
     src/unixsignals.cpp

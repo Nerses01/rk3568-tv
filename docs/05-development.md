@@ -19,9 +19,9 @@ Formatting, the tests and CI run the same checks everywhere: on GitHub, in Docke
 | Where | What |
 |---|---|
 | `app/CMakeLists.txt` | the app `rk3568-tv`, and the static QML module `rk3568tv_ui` (URI `Rk3568Tv`) that the app and the tests share |
-| `app/src/` | C++: `main.cpp`. Types QML uses: `RemoteKeys` (keys to remote-control actions), `SystemInfo`, `VideoLibrary` (the video files), `VideoPlayer` (playback and drawing). C++ QML doesn't see: `UnixSignals` (a clean quit when systemd stops the app), `ResumePositions` |
-| `system/` | what the board runs: the unit `rk3568-tv.service`, `install.sh`, `rk3568-tv-mode`, `rk3568-tv-screen`; tests in `system/tests/` |
-| `app/qml/` | QML: `Main.qml` (the window), `Theme.qml` (the look), `PageStack.qml` and `Page.qml` (navigation), the pages (`HomePage`, `SettingsPage`, `AboutPage`, `NotYetPage`) and their parts (`Tile`, `MenuRow`, `Clock`) |
+| `app/src/` | C++: `main.cpp`. Types QML uses: `RemoteKeys` (keys to remote-control actions), `SystemInfo`, `VideoLibrary` (the video files), `VideoPlayer` (playback and drawing), `Wifi` (through `nmcli`), `Bluetooth` (through `bluetoothctl`), `DisplaySettings` (the screen mode). C++ QML doesn't see: `UnixSignals` (a clean quit when systemd stops the app), `ResumePositions`, `Command` (runs `nmcli` and `bluetoothctl`; the tests swap in stubs through `RK3568_TV_NMCLI` and `RK3568_TV_BLUETOOTHCTL`) |
+| `system/` | what the board runs: the unit `rk3568-tv.service`, `install.sh`, `rk3568-tv-mode`, `rk3568-tv-screen`, the polkit rule `rk3568-tv.pkla`; tests in `system/tests/` |
+| `app/qml/` | QML: `Main.qml` (the window), `Theme.qml` (the look), `PageStack.qml` and `Page.qml` (navigation), the pages (`HomePage`, `VideosPage`, `PlayerPage`, `SettingsPage`, `WifiPage`, `PasswordPage`, `BluetoothPage`, `DisplayPage`, `ConfirmModePage`, `ChoicesPage`, `AboutPage`) and their parts (`Tile`, `MenuRow`, `Clock`, `OnScreenKeyboard`) |
 | `app/tests/` | Qt Test for the C++ (`tst_*.cpp`), Qt Quick Test for the QML (`qml/tst_*.qml`) |
 
 Qt 6.2 needs a few things that later versions don't:
@@ -86,7 +86,7 @@ file keeps its time, so the build redoes only what changed. Then [scripts/board-
 1. Builds with CMake and Ninja in `/userdata/dev/rk3568-tv/build`, and builds the key tool.
 2. Installs the build with [system/install.sh](../system/install.sh), together with the unit and its scripts, as
    the board runs them from boot (step 1.2). A development build therefore runs exactly like the app at boot: same
-   unit, same user `tv`, same screen mode (`/etc/rk3568-tv/kms.json`).
+   unit, same user `tv`, same screen mode (`/var/lib/rk3568-tv/kms.json`, which Settings, Display changes).
 3. Masks the vendor's `hdmi_hotplug.service` until the next reboot, in case the board is in desktop mode. Otherwise
    every HDMI hotplug would start GNOME, which would stop the app (02-board.md, "An HDMI hotplug starts the
    desktop"). TV mode masks it for good anyway.

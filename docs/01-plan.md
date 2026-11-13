@@ -1,12 +1,13 @@
 # Plan
 
-Status on 2026-11-13: steps 0.2 (backup), 0.3 (board housekeeping), 0.4 (HDMI audio), 0.5 (video spike: candidate
+Status on 2026-11-14: steps 0.2 (backup), 0.3 (board housekeeping), 0.4 (HDMI audio), 0.5 (video spike: candidate
 B, [03-video-spike.md](03-video-spike.md)), 0.6 (UI spike: EGLFS, the UI drawn at 1080p,
 [04-ui-spike.md](04-ui-spike.md)) and 0.7 (development loop, [05-development.md](05-development.md)) are done. Phase 0
 is complete. In Phase 1, steps 1.1 (the app skeleton, its tests, formatting and CI), 1.2 (start at boot: the board
 boots into the TV app, [02-board.md](02-board.md), "TV app or desktop") and 1.3 (navigation and the home screen,
-[05-development.md](05-development.md), "UI conventions") and 1.4 (the player, [03-video-spike.md](03-video-spike.md),
-"In the product") are done. Next: step 1.5, local media and USB drives.
+[05-development.md](05-development.md), "UI conventions"), 1.4 (the player, [03-video-spike.md](03-video-spike.md),
+"In the product") and 1.6 (settings: Wi-Fi, Bluetooth, the screen mode) are done. Step 1.5 is postponed. Next: step
+1.7, remotes.
 
 ## 1. Goal
 
@@ -187,8 +188,13 @@ Decide the display and video stack on real measurements before writing the real 
   text, safe margins, scaled for 1080p and 4K.
 - **1.4 Player.** The video path from 0.5; play, pause, seek, audio and subtitle tracks; resume where you
   stopped.
-- **1.5 Local media.** `/userdata/media` and USB drives; folders, thumbnails.
-- **1.6 Settings.** Wi-Fi, Bluetooth (scan, pair, forget), display resolution, about and version.
+- **1.5 Local media.** `/userdata/media` and USB drives; folders, thumbnails. Postponed on 2026-11-14 at the
+  developer's request, not dropped; until then the Videos page lists `/userdata/media`.
+- **1.6 Settings.** Wi-Fi, Bluetooth (scan, pair, forget), display resolution, about and version. Done
+  2026-11-14. Tried on the board: the networks in range, the password page, tv's NetworkManager rights, a Bluetooth
+  search, connecting a paired keyboard that was off, and the screen mode changed, kept and gone back by itself. Not
+  tried yet, because they need someone at the TV: joining another network (it could cut SSH; the USB-C cable is the
+  way back) and pairing a new device.
 - **1.7 Remotes.** HDMI-CEC: the TV's remote keys drive the app, and the TV and box switch on together. The IR
   remote's keys mapped.
 - **1.8 Package.** CI produces the `.deb`. Done when: the vendor image plus `apt install` of the package gives
@@ -283,3 +289,9 @@ Decide the display and video stack on real measurements before writing the real 
 | 2026-11-13 | Icons from the DejaVu font's symbols for now, no SVG | the board's Qt 6 SVG plugin wasn't installed from a package (Ubuntu's `libqt6svg6` is not installed; an unpackaged copy is); the package of step 1.8 can depend on `libqt6svg6` if icons need more |
 | 2026-11-13 | A deploy installs the build and restarts the real unit; the transient development unit is gone | development runs the app exactly as the board runs it from boot, so nothing differs between the two; until the package of step 1.8, the last deploy is the installed app |
 | 2026-11-13 | Formatting: clang-format 14 with a Qt-like style at 120 columns, and qmlformat 6.2.4, both Ubuntu 22.04's, checked in CI; no arrow functions in QML; no qmllint for now | the same versions in CI, Docker and on the board, so the check never disagrees with the formatter; qmlformat 6.2 corrupts arrow functions; qmllint 6.2 reports Qt's own `Qt` object as an error |
+| 2026-11-14 | Step 1.5 (USB drives, folders, thumbnails) postponed; 1.6 next | the developer's choice |
+| 2026-11-14 | Wi-Fi and Bluetooth through the system's own tools, `nmcli` and `bluetoothctl`, run without a shell (`Command`) | what the app does is what an admin would type, and can be tried by hand; no D-Bus client code to keep in step with NetworkManager and BlueZ; the tests swap in stubs |
+| 2026-11-14 | The user `tv` may manage NetworkManager through a polkit rule (`rk3568-tv.pkla`, the format of Ubuntu 22.04's polkit 0.105), and nothing else | NetworkManager asks polkit for every change, and a system user is refused by default; BlueZ 5.64 lets any local user in |
+| 2026-11-14 | A first join that fails removes the profile it made; a known network's profile stays | otherwise NetworkManager keeps the wrong password and keeps trying it |
+| 2026-11-14 | Pairing uses the agent `NoInputNoOutput`, then trusts and connects | headphones, speakers, game pads and remotes pair without a PIN; trusted devices reconnect by themselves. A device that needs a PIN needs a page for it later |
+| 2026-11-14 | The screen mode is chosen in Settings and saved in `/var/lib/rk3568-tv/kms.json` (`tv`'s, no longer in `/etc`); the app restarts in it and asks to keep it. Without OK within 15 s, or after three starts without one, the mode before comes back | Qt reads its KMS configuration only when it starts; a mode the screen can't show must not leave a black screen with no way back |

@@ -32,7 +32,8 @@ ExecStartPre=+-/usr/bin/chvt 1
 ExecStartPre=+/usr/local/lib/rk3568-tv/rk3568-tv-screen prepare
 Environment=QT_QPA_PLATFORM=eglfs
 Environment=QT_QPA_EGLFS_INTEGRATION=eglfs_kms
-Environment=QT_QPA_EGLFS_KMS_CONFIG=/etc/rk3568-tv/kms.json
+# the screen mode: the app writes it (Settings, Display), so it lives in tv's home
+Environment=QT_QPA_EGLFS_KMS_CONFIG=/var/lib/rk3568-tv/kms.json
 ExecStart=/usr/local/bin/rk3568-tv
 Restart=always
 RestartSec=3

@@ -1,20 +1,20 @@
 import QtQuick
 import Rk3568Tv
 
-// Settings: a list, up and down to choose, OK to open. Wi-Fi, Bluetooth and display arrive in step 1.6.
+// Settings: a list, up and down to choose, OK to open
 Page {
     id: settings
 
     readonly property var entries: [{
             "label": qsTr("Wi-Fi"),
-            "page": notYetPage
+            "page": wifiPage
         }, {
             "label": qsTr("Bluetooth"),
-            "page": notYetPage
+            "page": bluetoothPage
         }, {
             "label": qsTr("Display"),
-            "value": qsTr("%1 × %2").arg(Screen.width).arg(Screen.height),
-            "page": notYetPage
+            "value": DisplaySettings.current,
+            "page": displayPage
         }, {
             "label": qsTr("About"),
             "page": aboutPage
@@ -53,9 +53,21 @@ Page {
         }
     }
     Component {
-        id: notYetPage
+        id: wifiPage
 
-        NotYetPage {
+        WifiPage {
+        }
+    }
+    Component {
+        id: bluetoothPage
+
+        BluetoothPage {
+        }
+    }
+    Component {
+        id: displayPage
+
+        DisplayPage {
         }
     }
     Component {

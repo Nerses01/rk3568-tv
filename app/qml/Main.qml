@@ -40,7 +40,11 @@ Window {
 
             anchors.fill: parent
 
-            Component.onCompleted: pages.push(homePage)
+            Component.onCompleted: {
+                pages.push(homePage);
+                if (DisplaySettings.awaitingConfirmation)
+                    pages.push(confirmModePage);
+            }
         }
         Component {
             id: homePage
@@ -48,5 +52,19 @@ Window {
             HomePage {
             }
         }
+        Component {
+            id: confirmModePage
+
+            ConfirmModePage {
+            }
+        }
+    }
+    // a new screen mode: the app quits, systemd starts it again in that mode
+    Connections {
+        function onRestartRequested() {
+            Qt.quit();
+        }
+
+        target: DisplaySettings
     }
 }

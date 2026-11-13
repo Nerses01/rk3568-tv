@@ -1,3 +1,4 @@
+#include "displaysettings.h"
 #include "unixsignals.h"
 
 #include <QGuiApplication>
@@ -12,6 +13,8 @@ Q_IMPORT_QML_PLUGIN(Rk3568TvPlugin)
 
 int main(int argc, char *argv[])
 {
+    // a new screen mode the app can't start in goes back to the old one after three tries
+    DisplaySettings::recoverBeforeStart();
     QGuiApplication app(argc, argv);
     QGuiApplication::setApplicationName(QStringLiteral("rk3568-tv"));
     QGuiApplication::setApplicationVersion(QStringLiteral(RK3568_TV_VERSION));
