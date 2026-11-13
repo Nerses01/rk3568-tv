@@ -1,7 +1,8 @@
 # Plan
 
-Status on 2026-11-13: steps 0.2 (backup), 0.3 (board housekeeping), 0.4 (HDMI audio) and 0.5 (video spike: candidate
-B, [03-video-spike.md](03-video-spike.md)) are done. Next: step 0.6, the UI spike, which 0.5 already partly answers.
+Status on 2026-11-13: steps 0.2 (backup), 0.3 (board housekeeping), 0.4 (HDMI audio), 0.5 (video spike: candidate
+B, [03-video-spike.md](03-video-spike.md)) and 0.6 (UI spike: EGLFS, the UI drawn at 1080p,
+[04-ui-spike.md](04-ui-spike.md)) are done. Next: step 0.7, the development loop.
 
 ## 1. Goal
 
@@ -42,7 +43,7 @@ Surveyed over SSH on 2026-11-11; [02-board.md](02-board.md) has the details.
 | Board | appears to be GZPEITE's build of RYD's 8897 mainboard | RYD's specification and device trees describe the hardware; no vendor image matches this board, so our own backup is the only restore source |
 | CPU, RAM | 4× Cortex-A55, 4 GB | enough for a Qt Quick UI; not enough to decode 4K in software |
 | Storage | 16 GB eMMC: `/` 6.5 GB (0.4 GB free, 2.2 GB after 0.3), `/userdata` 7.6 GB | builds and media live in `/userdata` |
-| GPU | Mali-G52, vendor driver `libmali-bifrost-g52-g13p0-x11-gbm` | OpenGL ES under X11 or straight on the screen (KMS/GBM); no Wayland build of the driver is installed |
+| GPU | Mali-G52, vendor driver `libmali-bifrost-g52-g13p0-x11-gbm` | OpenGL ES under X11 or straight on the screen (KMS/GBM); no Wayland build of the driver is installed. Qt Quick on EGLFS holds 60 fps at 1080p, but can't draw 4K within one refresh (0.6) |
 | Video decoder | Rockchip MPP 1.5.0 with GStreamer elements (`mppvideodec`) | hardware decoding works through GStreamer: H.265 up to 2160p60, H.264 up to 2160p30 (0.5) |
 | mpv | 0.32, offers only `v4l2m2m-copy` decoders | probably no hardware decoding on this kernel; a fallback to test, not the plan |
 | Qt | Qt 6.2.4 and Qt 5.15.3 in Ubuntu's apt | no Qt build needed to start |
@@ -58,15 +59,23 @@ Surveyed over SSH on 2026-11-11; [02-board.md](02-board.md) has the details.
 ### 4.1 The app
 
 One C++20 application with a Qt Quick (QML) interface. C++ is the developer's language, and Qt Quick is built
-for full-screen GPU-drawn interfaces that run without a desktop. We start with Ubuntu's Qt 6.2.4 from apt; a
-newer Qt is built only if step 0.6 finds a blocker.
+for full-screen GPU-drawn interfaces that run without a desktop. We use Ubuntu's Qt 6.2.4 from apt; steps 0.5 and
+0.6 found no reason to build a newer one.
 
 ### 4.2 Display: no desktop
 
 The app draws straight to the screen with Qt's EGLFS backend on KMS/GBM, which the vendor's Mali driver
 supports. No compositor, no desktop: less memory, no window decorations, nothing for the viewer to fall into.
-Fallback if EGLFS fails with this driver: a minimal X11 session that runs only the app. GNOME stays installed
-until Phase 1 is done, as the way back.
+GNOME stays installed until Phase 1 is done, as the way back.
+
+Decided in 0.6 ([04-ui-spike.md](04-ui-spike.md)):
+- **EGLFS works.** The home screen holds 59.4 fps at 1080p60 while browsing, and keys arrive through libinput. The
+  X11 fallback is dropped: it isn't needed, and Qt under X finds no EGL configuration with this driver.
+- **The UI is drawn at 1920×1080.** On a 4K screen, the display controller scales it up (Qt's KMS `size` with
+  atomic modesetting); the GPU manages only 28 fps drawing at 4K.
+- **The app sets the screen mode itself**, 1920×1080 at 60 Hz by default, since a screen's preferred mode can be
+  worse: the developer's TV prefers 720p50.
+- **The app links the Mali EGL, GLES and GBM libraries itself**, or Qt loads Mesa's GBM and fails.
 
 ### 4.3 Video: hardware decoding inside the UI
 
@@ -195,7 +204,8 @@ Decide the display and video stack on real measurements before writing the real 
 | Risk | Effect | What we do |
 |---|---|---|
 | Hardware-decoded video can't be shown inside Qt Quick without copies | 4K stutters | settled by spike 0.5: candidate B shows 2160p30 without copies; 2160p60, 10-bit and VP9 are confirmed in 1.4 |
-| The Mali driver doesn't work with Qt's EGLFS | no desktop-free start | spike 0.6; fallback to a minimal X11 session |
+| The Mali driver doesn't work with Qt's EGLFS | no desktop-free start | settled by spike 0.6: it works, 60 fps at 1080p, once the app links the Mali libraries itself |
+| On a 4K screen, video drawn in the UI (candidate B) is limited to the UI's 1080p framebuffer | 4K video shows at 1080p | step 1.4: a 4K framebuffer while playing, or video on its own plane (candidate C); needs a 4K screen to test |
 | HDMI audio can't be enabled | no sound on the TV | 0.4 early; fallbacks: Bluetooth speaker, analog output |
 | A boot-partition change leaves the board unbootable | board out of action | backup and reflash procedure (0.2); the FLASH button reaches loader mode without Ubuntu (tested in 0.4); `scripts/boot-dtb.sh` checks an image before it is written |
 | The backup is lost or damaged | no way back: no vendor image matches this board | checksums in the backup folder; a second copy off the PC |
@@ -210,7 +220,8 @@ Decide the display and video stack on real measurements before writing the real 
 1. The name. `rk3568-tv` is a working title; the app will need a name on screen.
 2. A licence for the public repository (none yet, which means all rights reserved).
 3. Which sources matter most after local files: IPTV, YouTube, Jellyfin? That orders Phase 2.
-4. The TV or monitor: does it have 4K, HDR, HDMI-CEC? Its remote decides how much 1.7 gives.
+4. The TV or monitor: does it have 4K, HDR, HDMI-CEC? Its remote decides how much 1.7 gives. Partly answered in
+   0.6: the TV in use, a Sharp from 2013, has 1080p at most and HDMI-CEC. Is a 4K screen available for testing?
 5. Is there a Jellyfin or Plex server at home, or a NAS with media?
 6. Is there an IR remote to use, or will one be bought?
 7. Can GZPEITE supply this board's factory image and its kernel source? Not needed now; it would give a second
@@ -237,3 +248,7 @@ Decide the display and video stack on real measurements before writing the real 
 | 2026-11-13 | Video in the UI: candidate B, our own GStreamer pipeline (`mppvideodec ! queue ! appsink`) whose DMA-BUF frames are drawn as EGLImages in Qt Quick's render pass | 1080p30 and 2160p30, H.264 and H.265: 1799–1800 of 1800 frames shown, UI at 60 fps, about 55 % of one core. A (Qt Multimedia): UI at 19 fps (1080p) and 6 fps (2160p). C (`kmssink` under Qt): UI at 25–30 fps, 17–38 % of frames lost ([03-video-spike.md](03-video-spike.md)) |
 | 2026-11-13 | No Qt Multimedia for video | it copies every frame, and Ubuntu's build needs EGL 1.5 functions that the vendor's Mali EGL 1.4 lacks |
 | 2026-11-13 | Spike code is kept in `spikes/`, without tests | it is measurement code, not product code; kept so that the decisions' numbers can be reproduced |
+| 2026-11-13 | The UI runs on EGLFS (`eglfs_kms`) with the Mali driver and no desktop; the X11 fallback is dropped | 0.6: the home screen holds 59.4 fps at 1080p60 while browsing, with about 1 % late frames, nearly all from uploading background stills; keys arrive through libinput. Qt under X finds no EGL configuration with this driver (0.5) ([04-ui-spike.md](04-ui-spike.md)) |
+| 2026-11-13 | The UI is drawn at 1920×1080; a 4K screen gets it scaled by the display controller (Qt's KMS `size`, atomic modesetting) | at 3840×2160 the GPU manages 28 fps, 44 fps with no pictures, and a faster memory clock doesn't help; the scaler costs the GPU nothing |
+| 2026-11-13 | The app sets the screen mode itself (1920×1080 at 60 Hz by default) | Qt's default is the screen's preferred mode, and the developer's TV prefers 1280×720 at 50 Hz |
+| 2026-11-13 | The app links the Mali EGL, GLES and GBM libraries itself, ahead of Qt and with `--no-as-needed` | Qt's KMS libraries have RUNPATH `$ORIGIN` and otherwise load Mesa's GBM, and Qt stops with "Could not create GBM device" |

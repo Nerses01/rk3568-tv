@@ -13,6 +13,7 @@ docs are the source of truth; read them before changing anything:
 | `docs/01-plan.md` | goals, scope, technical approach, phases and steps, risks, open questions, decisions log |
 | `docs/02-board.md` | the board: hardware, partitions, access, our changes, backup and restore, known faults and their fixes |
 | `docs/03-video-spike.md` | how video gets into the Qt Quick UI (candidate B), its numbers, and what the platform needs for it |
+| `docs/04-ui-spike.md` | the UI on EGLFS without a desktop: 1080p at 60 fps, 4K by scaling, keyboard input, and what the platform needs for it |
 
 `CLAUDE.local.md` (git-ignored) holds the board's network address and how to log in. Read it before touching
 the board; if it is missing, ask the developer.
