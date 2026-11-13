@@ -24,7 +24,7 @@ IP, MAC and Bluetooth addresses are left out on purpose; they are in the git-ign
 | Held by apt | GStreamer base and GL packages, `libdrm` and others: the vendor's patched builds (`apt-mark showhold`) |
 | Wi-Fi and Bluetooth | Realtek RTL8821CS. Wi-Fi over SDIO (module `RTL8821CS`); Bluetooth over UART `/dev/ttyS8` with the H5 protocol, attached by `rtk_hciattach`; firmware in `/lib/firmware/rtlbt` |
 | Wi-Fi/Bluetooth start | `wifibt-init.service` runs `/usr/bin/wifibt-init.sh start` at boot |
-| Audio | only the analog RK809 codec. The device tree's `hdmi-sound` node is `disabled`; `i2s@fe400000` is `okay` |
+| Audio | card 0: the analog RK809 codec. Card 1: HDMI (`rockchip,hdmi`, on `i2s@fe400000`), enabled in step 0.4; the vendor's device tree had `hdmi-sound` disabled |
 | HDMI-CEC | `/dev/cec0`; input device `hdmi_cec_key` |
 | Other inputs | PWM IR receiver (input device `fe6e0030.pwm`), `adc-keys`, the power key |
 | Toolchain | gcc and g++ 11.4, CMake, Ninja, git |
@@ -39,7 +39,7 @@ sector is also the address RKDevTool uses.
 | | | `0x0` | 8 MB | | before `uboot`: protective MBR, GPT, the first-stage loader (DDR init and SPL) and Rockchip's vendor storage; in no partition, so a partition-only copy misses it |
 | `mmcblk2p1` | `uboot` | `0x4000` | 4 MB | | bootloader: never touch |
 | `mmcblk2p2` | `misc` | `0x6000` | 4 MB | | boot-mode flags (recovery); nearly empty |
-| `mmcblk2p3` | `boot` | `0x8000` | 64 MB | | kernel and device tree (FIT image); step 0.4 changes it |
+| `mmcblk2p3` | `boot` | `0x8000` | 64 MB | | kernel and device tree (FIT image); changed in step 0.4 ("Changing the device tree") |
 | `mmcblk2p4` | `recovery` | `0x28000` | 128 MB | | |
 | `mmcblk2p5` | `backup` | `0x68000` | 32 MB | | empty (all zeros); the target of the restore rehearsal's write test |
 | `mmcblk2p6` | `gzpeite` | `0x78000` | 16 MB | `/gzpeite` | vendor data (vfat) |
@@ -62,7 +62,7 @@ main area.
 
 ## Our changes to the vendor image
 
-All made in step 0.3 (2026-11-13). Copies of the edited files as the vendor shipped them are in
+Made in steps 0.3 and 0.4 (2026-11-13). Copies of the edited files as the vendor shipped them are in
 `/root/rk3568-tv-orig/`.
 
 | Change | Undo |
@@ -74,6 +74,7 @@ All made in step 0.3 (2026-11-13). Copies of the edited files as the vendor ship
 | The FTP server for the scale application's folder is off (`systemctl disable --now vsftpd`) | `systemctl enable --now vsftpd` |
 | `bt-recover` installed in `/usr/local/sbin` (Known faults) | delete it |
 | `/userdata/dev` and `/userdata/media` created | |
+| `boot`: the device tree enables `hdmi-sound` (step 0.4; image SHA-256 `46ecc4d7…`) | write the vendor's image, `/userdata/dev/hdmi-audio/p03-boot.orig.img` (the same as the backup's), back to `boot` |
 
 ## Vendor files
 
@@ -98,15 +99,19 @@ the developer has for it. Its Wi-Fi chip, partition layout (`gzpeite`, `logo_rk`
 "Upgrade Firmware" would repartition the eMMC and replace the system. Our own backup is the only full restore source.
 
 RYD's device trees enable `hdmi_sound` (`status = "okay"`) in both their HDMI and eDP variants; this board's device
-tree disables it (step 0.4).
+tree had it disabled until step 0.4.
 
 ## Backup and restore
 
 ### The backup
 
-Taken on 2026-11-11 and 2026-11-12, kept on the developer's PC in `C:\rk3568-backup\2026-11-11\`, outside the
-repository. It holds the board's secrets (the Wi-Fi password, SSH host keys, root's password hash, the board's
-addresses), so it never goes into the repository or anywhere public.
+Taken on 2026-11-11 and 2026-11-12. It is kept in two places outside the repository: on the developer's PC in
+`C:\rk3568-backup\2026-11-11\`, and on a USB stick in `\rk3568-backup\2026-11-11\`, both verified on 2026-11-13.
+It holds the board's secrets (the Wi-Fi password, SSH host keys, root's password hash, the board's addresses), so
+it never goes into the repository or anywhere public. To check a copy: `sha256sum -c FILES.sha256` in its folder.
+
+Since step 0.4 the board's `boot` differs from the backup's: the backup holds the vendor's original, without HDMI
+sound.
 
 | File | Content |
 |---|---|
@@ -118,6 +123,8 @@ addresses), so it never goes into the repository or anywhere public.
 | `SHA256SUMS` | SHA-256 of every uncompressed image, of every piece, and of `p08` and `p10` whole |
 | `layout.txt` | start sector and size of every image |
 | `backup.log`, `overnight.log`, `fsck.log` | how each region was read and checked, and the rehearsal below |
+| `SHA256SUMS.board`, `usb.log` | the board's own record of the USB-stick copy |
+| `FILES.sha256` | SHA-256 of every file in the folder, to check a copy |
 | `tools/` | the scripts that took the backup |
 
 How it was checked:
@@ -184,8 +191,8 @@ Loader mode:
 
 - From Ubuntu: `systemctl reboot --reboot-argument=loader`. Windows shows "Rockusb Device" (USB `2207:350A`),
   RKDevTool says "Found One LOADER Device".
-- Without Ubuntu: hold FLASH (`K1`) while switching on. Tried once, before `J5` was found: Ubuntu didn't start,
-  so probably loader mode, but the PC never saw it.
+- Without Ubuntu: with the board off, hold FLASH (`K1`), switch it on, and keep holding for about 3 seconds.
+  Tested on 2026-11-13: RKDevTool said "Found One LOADER Device". This is the way in when Ubuntu doesn't boot.
 - ResetDevice (Advanced Function tab) leaves loader mode and boots normally.
 
 Reading (Advanced Function tab): Start and Count in sectors, in hex, then ExportImage. The file goes to
@@ -213,7 +220,7 @@ Never use the Upgrade Firmware tab (a vendor `update.img` would repartition the 
 EraseFlash, EraseAll, EraseLBA, Go Maskrom or Switch Storage.
 
 The loader: each vendor `update.img` carries one. Its offset and length are 32-bit little-endian numbers at bytes
-25 and 29 of the file. Both are already extracted in `C:\rk3568-backup\loaders\`:
+25 and 29 of the file. Both are already extracted in `loaders\` next to the backup, on the PC and on the stick:
 
 ```sh
 f=update.img
@@ -221,6 +228,44 @@ off=$(od -A n -t u4 -j 25 -N 4 "$f" | tr -d ' ')
 len=$(od -A n -t u4 -j 29 -N 4 "$f" | tr -d ' ')
 tail -c +$((off + 1)) "$f" | head -c "$len" > loader.bin   # starts with "LDR "
 ```
+
+## Changing the device tree
+
+The kernel's device tree lives in the `boot` partition. The kernel can't apply overlays at runtime
+(`CONFIG_OF_OVERLAY` is off), so a change means writing a new boot image. Step 0.4 did this once, to enable HDMI
+sound.
+
+The boot image is a FIT. A 0x600-byte header lists three parts, each with its position and SHA-256: `fdt` (at
+0x800), `kernel` and `resource`. `resource`, in Rockchip's RSCE format, holds the boot logos and `rk-kernel.dtb`, a
+second, identical copy of the device tree with its own SHA-1. The header has a `signature` node, but it contains
+no signature: the image isn't signed (`androidboot.verifiedbootstate=orange`), and U-Boot checks only the
+checksums. The image ends at 0x280b600. The rest of the 64 MB partition holds 14 MB of leftovers that nothing
+reads.
+
+[scripts/boot-dtb.sh](../scripts/boot-dtb.sh) changes both copies and all four checksums, and keeps every size and
+position. It runs on the board, which has `dtc`, `fdtget` and `fdtput`. Its tests are
+`sh scripts/tests/test-boot-dtb.sh`.
+
+```sh
+mkdir -p /userdata/dev/<change> && cd /userdata/dev/<change>
+dd if=/dev/disk/by-partlabel/boot of=boot.orig.img bs=4M
+sh boot-dtb.sh extract boot.orig.img fdt.dtb
+cp fdt.dtb fdt.new.dtb
+fdtput -t s fdt.new.dtb /hdmi-sound status okay                 # the change itself
+dtc -q -I dtb -O dts -s fdt.dtb > a.dts; dtc -q -I dtb -O dts -s fdt.new.dtb > b.dts; diff a.dts b.dts
+sh boot-dtb.sh replace boot.orig.img fdt.new.dtb boot.new.img   # checks before and after; refuses on doubt
+dd if=boot.new.img of=/dev/disk/by-partlabel/boot bs=4M conv=fsync
+sync; echo 3 > /proc/sys/vm/drop_caches; sh boot-dtb.sh verify /dev/disk/by-partlabel/boot
+```
+
+The new device tree may be smaller than the old one, which is padded with zeros, but not larger. Before writing,
+have the way back ready:
+- the original image, next to the new one;
+- for a board that doesn't boot, RKDevTool in loader mode via the FLASH button, writing the original at `0x8000`
+  ("Backup and restore").
+
+Step 0.4's images are kept in `/userdata/dev/hdmi-audio/`: `p03-boot.orig.img` (the vendor's, `e435a705…`) and
+`p03-boot.new.img` (`46ecc4d7…`).
 
 ## Known faults and fixes
 

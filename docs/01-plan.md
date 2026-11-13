@@ -1,7 +1,7 @@
 # Plan
 
-Status on 2026-11-13: steps 0.2 (backup) and 0.3 (board housekeeping) are done. Still open from 0.2: a second
-copy of the backup off the PC. Next: step 0.4.
+Status on 2026-11-13: steps 0.2 (backup), 0.3 (board housekeeping) and 0.4 (HDMI audio) are done. Next: step 0.5,
+the video spike.
 
 ## 1. Goal
 
@@ -46,7 +46,7 @@ Surveyed over SSH on 2026-11-11; [02-board.md](02-board.md) has the details.
 | Video decoder | Rockchip MPP 1.5.0 with GStreamer elements (`mppvideodec`) | hardware decoding works through GStreamer |
 | mpv | 0.32, offers only `v4l2m2m-copy` decoders | probably no hardware decoding on this kernel; a fallback to test, not the plan |
 | Qt | Qt 6.2.4 and Qt 5.15.3 in Ubuntu's apt | no Qt build needed to start |
-| HDMI audio | `hdmi-sound` disabled in the device tree; only the analog RK809 codec | must be enabled (0.4); RYD's device trees for the board enable it |
+| HDMI audio | `hdmi-sound` disabled in the vendor's device tree; only the analog RK809 codec | enabled in 0.4 with a changed device tree in `boot`; sound plays over HDMI |
 | HDMI-CEC | `/dev/cec0` and an `hdmi_cec_key` input device | the TV's remote can drive the app |
 | IR receiver | a PWM IR input device | a cheap IR remote can work |
 | Wi-Fi, Bluetooth | Realtek RTL8821CS, Bluetooth over UART | works, but Wi-Fi uploads run at about 150 KB/s and stalled once under load; Bluetooth has one known fault after the desktop's toggle (02-board.md) |
@@ -110,7 +110,8 @@ app/tests/    Qt Test
 system/       systemd units, udev rules and scripts installed on the board
 system/tests/ tests for those scripts, with stub commands (plain sh)
 packaging/    Debian packaging
-scripts/      developer scripts (deploy, logs)
+scripts/      developer scripts (deploy, logs, the boot image's device tree)
+scripts/tests/ tests for those scripts
 docs/
 ```
 
@@ -191,7 +192,7 @@ Decide the display and video stack on real measurements before writing the real 
 | Hardware-decoded video can't be shown inside Qt Quick without copies | 4K stutters | spike 0.5 before any UI work; candidate C avoids the problem in hardware |
 | The Mali driver doesn't work with Qt's EGLFS | no desktop-free start | spike 0.6; fallback to a minimal X11 session |
 | HDMI audio can't be enabled | no sound on the TV | 0.4 early; fallbacks: Bluetooth speaker, analog output |
-| A boot-partition change leaves the board unbootable | board out of action | backup and reflash procedure (0.2) before 0.4 |
+| A boot-partition change leaves the board unbootable | board out of action | backup and reflash procedure (0.2); the FLASH button reaches loader mode without Ubuntu (tested in 0.4); `scripts/boot-dtb.sh` checks an image before it is written |
 | The backup is lost or damaged | no way back: no vendor image matches this board | checksums in the backup folder; a second copy off the PC |
 | The board's Wi-Fi is slow and stalls | transfers and SSH sessions die; streaming suffers | Ethernet or a USB stick for large transfers; power-saving test once an Ethernet cable is in |
 | An apt upgrade replaces a vendor package | decoding or graphics break | keep apt's holds; never upgrade them |
@@ -226,3 +227,5 @@ Decide the display and video stack on real measurements before writing the real 
 | 2026-11-13 | SSH keeps accepting passwords | the developer's choice |
 | 2026-11-13 | Only SSH open on the network: ADB over USB only, the FTP server off | fewer ways in for others; ADB over the USB cable stays as a way in for us |
 | 2026-11-13 | The Wi-Fi power-saving test leaves step 0.3 | changing Wi-Fi settings needs Ethernet as the way back, and no cable is connected |
+| 2026-11-13 | A second copy of the backup on a USB stick, with `FILES.sha256` in each copy | the risk "the backup is lost or damaged"; the stick is offline |
+| 2026-11-13 | HDMI audio: change the device tree inside the existing boot image (both copies, all checksums, sizes and positions unchanged) with `scripts/boot-dtb.sh`, rather than rebuild the image | the kernel can't apply overlays; the image isn't signed; changing only what must change leaves the vendor's kernel, logos and layout as they were |
