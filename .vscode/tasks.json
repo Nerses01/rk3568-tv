@@ -19,6 +19,26 @@
             "problemMatcher": { "base": "$gcc", "fileLocation": ["relative", "${workspaceFolder}"] }
         },
         {
+            "label": "Board: run the tests",
+            "type": "shell",
+            "command": "sh scripts/board.sh test",
+            "group": "test",
+            "problemMatcher": { "base": "$gcc", "fileLocation": ["relative", "${workspaceFolder}"] }
+        },
+        {
+            "label": "CI in Docker (everything CI checks)",
+            "type": "shell",
+            "command": "sh scripts/in-docker.sh sh scripts/ci.sh",
+            "group": { "kind": "test", "isDefault": true },
+            "problemMatcher": { "base": "$gcc", "fileLocation": ["autoDetect", "${workspaceFolder}"] }
+        },
+        {
+            "label": "Format (C++ and QML, in Docker)",
+            "type": "shell",
+            "command": "sh scripts/in-docker.sh sh scripts/format.sh",
+            "problemMatcher": []
+        },
+        {
             "label": "Board: screenshot (screenshots/latest.png)",
             "type": "shell",
             "command": "sh scripts/board.sh shot",

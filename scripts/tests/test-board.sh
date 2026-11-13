@@ -86,6 +86,13 @@ check "deploy: tells the time it took" has "$T/out" "board: deploy took"
 SSH_STATUS=1 run deploy
 check "deploy: a failure on the board fails it" status 1
 
+run test
+check "test: sends the app" sh -c "tar -tf '$T/ssh.stdin' | grep -q app/qml/Main.qml"
+check "test: board-run.sh runs the tests" has "$T/ssh.args" "sh /userdata/dev/rk3568-tv/scripts/board-run.sh test"
+check "test: tells the time it took" has "$T/out" "board: test took"
+SSH_STATUS=8 run test
+check "test: failing tests fail it" status 8
+
 run shot "$T/shots/a.png"
 check "shot: the picture in FILE" has "$T/shots/a.png" PNGDATA
 check "shot: names the file" has "$T/out" "$T/shots/a.png"

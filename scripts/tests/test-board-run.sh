@@ -44,6 +44,7 @@ stub systemctl 'case "$1" in is-active) exit ${ACTIVE_STATUS:-0} ;; esac'
 stub systemd-run ''
 stub journalctl 'echo "qrc:/Rk3568Tv/qml/Main.qml:5: something went wrong"'
 stub sleep ''
+stub ctest 'echo "$(dirname "$2")/app/tests/tst_x.cpp: FAIL!"; exit ${CTEST_STATUS:-0}'
 # HDMI in sysfs and debugfs, played by files and a tee that acts like the kernel: "detect" on status leaves the
 # cable's state (CABLE, default connected) in it, "on" forces it connected, "reset" clears the EDID override.
 mkdir -p "$T/hdmi" "$T/debug"
@@ -64,7 +65,7 @@ EOF
 chmod +x "$T/bin/tee"
 PATH=$T/bin:$PATH
 export PATH RK3568_TV_SRC=$src RK3568_TV_HDMI=$T/hdmi RK3568_TV_HDMI_DEBUG=$T/debug
-unset RK3568_TV_MODE CMAKE_STATUS ACTIVE_STATUS CABLE
+unset RK3568_TV_MODE CMAKE_STATUS ACTIVE_STATUS CABLE CTEST_STATUS
 
 run() {   # board-run.sh's exit status to $T/status, its output to $T/out, the stubs' calls to $T/calls
     rm -f "$T/calls"
@@ -75,7 +76,8 @@ status() { [ "$(cat "$T/status")" = "$1" ]; }
 
 run
 check "first run: configures the build" has "$T/calls" "cmake -S $src/app -B $src/build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo"
-check "first run: builds" has "$T/calls" "cmake --build $src/build"
+check "first run: builds the app alone" has "$T/calls" "cmake --build $src/build --target rk3568-tv"
+check "deploy: runs no tests" hasnt "$T/calls" ctest
 check "first run: builds the keys tool" has "$T/calls" "gcc -O2 -Wall -Wextra -o $src/build/board-keys $src/scripts/board-keys.c"
 check "stops the running app first" has "$T/calls" "systemctl stop rk3568-tv-dev"
 check "starts the app as rk3568-tv-dev" has "$T/calls" "--unit=rk3568-tv-dev"
@@ -148,6 +150,26 @@ check "stop: says so" has "$T/out" "the desktop is back"
 sh "$tool" restart > "$T/out" 2>&1
 echo $? > "$T/status"
 check "an unknown argument: exit 1" status 1
+
+rm -f "$T/calls"
+sh "$tool" test > "$T/out" 2>&1
+echo $? > "$T/status"
+check "test: builds everything" grep -qx "cmake --build $src/build" "$T/calls"
+check "test: runs the tests" has "$T/calls" "ctest --test-dir $src/build --output-on-failure"
+check "test: exit 0" status 0
+check "test: the running app stays" hasnt "$T/calls" "systemctl stop"
+check "test: nothing started" hasnt "$T/calls" systemd-run
+check "test: HDMI untouched" hasnt "$T/calls" tee
+check "test: messages relative to the repository" has "$T/out" "app/tests/tst_x.cpp: FAIL!"
+rm -f "$T/calls"
+CTEST_STATUS=8 sh "$tool" test > "$T/out" 2>&1
+echo $? > "$T/status"
+check "test: failing tests fail it" status 8
+rm -f "$T/calls"
+CMAKE_STATUS=1 sh "$tool" test > "$T/out" 2>&1
+echo $? > "$T/status"
+check "test: a failed build fails it" status 1
+check "test: and runs no tests" hasnt "$T/calls" ctest
 
 echo "$failures failed"
 [ "$failures" -eq 0 ]

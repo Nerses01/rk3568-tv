@@ -20,28 +20,38 @@
 #include <time.h>
 #include <unistd.h>
 
-static const struct {
+static const struct
+{
     const char *name;
     int code;
 } keys[] = {
-    { "up", KEY_UP },         { "down", KEY_DOWN },           { "left", KEY_LEFT },
-    { "right", KEY_RIGHT },   { "enter", KEY_ENTER },         { "back", KEY_BACK },
-    { "home", KEY_HOMEPAGE }, { "menu", KEY_MENU },           { "esc", KEY_ESC },
-    { "space", KEY_SPACE },   { "playpause", KEY_PLAYPAUSE }, { "volumeup", KEY_VOLUMEUP },
-    { "volumedown", KEY_VOLUMEDOWN },
+    {"up", KEY_UP},
+    {"down", KEY_DOWN},
+    {"left", KEY_LEFT},
+    {"right", KEY_RIGHT},
+    {"enter", KEY_ENTER},
+    {"back", KEY_BACK},
+    {"home", KEY_HOMEPAGE},
+    {"menu", KEY_MENU},
+    {"esc", KEY_ESC},
+    {"space", KEY_SPACE},
+    {"playpause", KEY_PLAYPAUSE},
+    {"volumeup", KEY_VOLUMEUP},
+    {"volumedown", KEY_VOLUMEDOWN},
 };
 enum { NKEYS = sizeof keys / sizeof keys[0] };
 
-struct step {
-    int key;   /* index into keys, or -1 for a pause */
-    long ms;   /* hold time, or pause */
+struct step
+{
+    int key; /* index into keys, or -1 for a pause */
+    long ms; /* hold time, or pause */
 };
 
 static int fd = -1;
 
 static void sleep_ms(long ms)
 {
-    struct timespec t = { ms / 1000, (ms % 1000) * 1000000L };
+    struct timespec t = {ms / 1000, (ms % 1000) * 1000000L};
     while (nanosleep(&t, &t) == -1)
         ;
 }
@@ -99,7 +109,7 @@ static int open_keyboard(void)
         return -1;
     }
     ioctl(fd, UI_SET_EVBIT, EV_KEY);
-    for (int code = KEY_ESC; code <= KEY_D; ++code)   /* with all of these, udev tags the device a keyboard */
+    for (int code = KEY_ESC; code <= KEY_D; ++code) /* with all of these, udev tags the device a keyboard */
         ioctl(fd, UI_SET_KEYBIT, code);
     for (int i = 0; i < NKEYS; ++i)
         ioctl(fd, UI_SET_KEYBIT, keys[i].code);
@@ -154,7 +164,7 @@ int main(int argc, char *argv[])
         sleep_ms(s->ms);
         emit(EV_KEY, keys[s->key].code, 0);
         emit(EV_SYN, SYN_REPORT, 0);
-        sleep_ms(60);   /* a gap between presses, as a person's fingers leave */
+        sleep_ms(60); /* a gap between presses, as a person's fingers leave */
     }
     if (!dry_run) {
         sleep_ms(200);

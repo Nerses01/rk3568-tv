@@ -14,7 +14,8 @@
 # requires the display manager, so it starts GNOME, which stops the app (docs/02-board.md). It is masked while the
 # app runs, in /run only, so a reboot unmasks it too.
 #
-# usage: board-run.sh          build, then (re)start the app
+# usage: board-run.sh          build the app, then (re)start it
+#        board-run.sh test     build everything and run the tests (offscreen; the running app stays)
 #        board-run.sh stop     stop the app, return HDMI to the real screen, start the desktop
 # Environment: RK3568_TV_SRC   the sources (default /userdata/dev/rk3568-tv)
 #              RK3568_TV_MODE  the screen mode (default 1920x1080@60: a screen's preferred mode can be worse,
@@ -57,8 +58,31 @@ stop_app() {
     systemctl reset-failed "$unit" 2> /dev/null
 }
 
+build() {   # [cmake --build ARGS...]: configure if needed, then build
+    mkdir -p "$build" || die "cannot create $build"
+    if [ ! -f "$build/build.ninja" ]; then
+        cmake -S "$src/app" -B "$build" -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo > "$log" 2>&1 || {
+            relative
+            die "cmake could not configure the build"
+        }
+    fi
+    if ! cmake --build "$build" "$@" > "$log" 2>&1; then
+        relative
+        die "the build failed"
+    fi
+    relative
+}
+
 case ${1:-} in
 '') ;;
+test)
+    # everything, tests included, then the tests; offscreen, so the running app stays
+    build
+    ctest --test-dir "$build" --output-on-failure > "$build/test.log" 2>&1
+    status=$?
+    sed "s|$src/||g" "$build/test.log"
+    exit $status
+    ;;
 stop)
     stop_app
     put reset "$hdmi_debug/edid_override"
@@ -68,21 +92,10 @@ stop)
     echo "board-run: the app is stopped and the desktop is back"
     exit 0
     ;;
-*) die "usage: board-run.sh [stop]" ;;
+*) die "usage: board-run.sh [test|stop]" ;;
 esac
 
-mkdir -p "$build" || die "cannot create $build"
-if [ ! -f "$build/build.ninja" ]; then
-    cmake -S "$src/app" -B "$build" -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo > "$log" 2>&1 || {
-        relative
-        die "cmake could not configure the build"
-    }
-fi
-if ! cmake --build "$build" > "$log" 2>&1; then
-    relative
-    die "the build failed"
-fi
-relative
+build --target rk3568-tv   # the app alone: the tests wait for `board-run.sh test`
 
 if [ ! -x "$build/board-keys" ] || [ "$src/scripts/board-keys.c" -nt "$build/board-keys" ]; then
     gcc -O2 -Wall -Wextra -o "$build/board-keys" "$src/scripts/board-keys.c" || die "board-keys did not build"

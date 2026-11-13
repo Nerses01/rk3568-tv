@@ -1,14 +1,32 @@
-# Development loop (step 0.7)
+# Development (steps 0.7 and 1.1)
 
 The app is edited on the PC, then built and run on the board. One command copies it over, builds it there and
 restarts it on the screen; a QML change is on screen in about half a minute. Logs, screenshots and key presses come
 back over SSH, so a change can be checked without sitting at the TV, even with the TV switched off.
+
+Formatting, the tests and CI run the same checks everywhere: on GitHub, in Docker on the PC, and on the board
+("Tests, formatting and CI" below).
 
 ## Setup
 
 - SSH key login to the board as `root` (02-board.md, "Access").
 - A file `.env` in the repository's root, which git ignores: `BOARD=root@<the board's address>`.
 - On Windows: Git for Windows, for Git Bash. The scripts are POSIX `sh`.
+- For formatting and CI on the PC: Docker. The PC needs no Qt.
+
+## The app's code
+
+| Where | What |
+|---|---|
+| `app/CMakeLists.txt` | the app `rk3568-tv`, and the static QML module `rk3568tv_ui` (URI `Rk3568Tv`) that the app and the tests share |
+| `app/src/` | C++: `main.cpp`, and the types QML uses, such as `RemoteKeys` (keys to remote-control actions) |
+| `app/qml/` | QML: `Main.qml`, the window |
+| `app/tests/` | Qt Test for the C++ (`tst_*.cpp`), Qt Quick Test for the QML (`qml/tst_*.qml`) |
+
+Qt 6.2 needs a few things that later versions don't:
+- The module's resources sit under `qrc:/qt/qml`, and the app and the QML tests add that import path themselves.
+- A QML file in the module imports the module (`import Rk3568Tv`) to see its C++ types.
+- A header with `QML_ELEMENT` or `QML_SINGLETON` includes `<QtQml/qqml.h>`.
 
 ## Commands
 
@@ -17,6 +35,7 @@ From the repository's root, or as VS Code tasks (Terminal → Run Task; Ctrl+Shi
 | Command | VS Code task | What it does |
 |---|---|---|
 | `sh scripts/board.sh deploy` | Board: deploy (Ctrl+Shift+B) | copies `app/` to the board, builds it there, restarts it on the screen |
+| `sh scripts/board.sh test` | Board: run the tests | copies `app/` to the board, builds everything there and runs the tests, offscreen; the running app stays |
 | `sh scripts/board.sh shot [FILE]` | Board: screenshot | the board's screen as a PNG, by default `screenshots/latest.png` (git ignores the folder) |
 | `sh scripts/board.sh keys KEY...` | Board: press keys | presses keys on the board, e.g. `keys right right down enter`; `right:1500` holds a key, `wait:500` pauses |
 | `sh scripts/board.sh logs [-f]` | Board: follow the log | the app's log from the journal |
@@ -69,13 +88,33 @@ GNOME. A reboot does the same, since nothing is installed.
   says "Failed with result 'exit-code'". The unit in step 1.2 has to accept that, or the app has to handle
   SIGTERM itself.
 - **Qt warns that `XDG_RUNTIME_DIR` is not set.** It's harmless here; the unit in step 1.2 sets it.
-- **The app can't run from Windows.** The PC only edits; Qt, the build and the app run on the board. Step 1.1 adds
-  a build on GitHub Actions for the tests.
+- **The app doesn't run on Windows.** The PC edits, formats and runs CI in Docker; the app itself runs on the
+  board.
 
-## Tests of the scripts
+## Tests, formatting and CI
 
-```sh
-sh scripts/tests/test-board.sh        # board.sh, with a stub ssh: on the PC or the board
-sh scripts/tests/test-board-run.sh    # board-run.sh, with stub cmake, systemctl, sysfs: on the PC or the board
-sh scripts/tests/test-board-keys.sh   # board-keys.c in a dry run: needs gcc, so on the board
-```
+[scripts/ci.sh](../scripts/ci.sh) holds everything CI checks:
+1. the formatting;
+2. the app, built with warnings as errors, and its tests;
+3. the tests of the shell scripts and the board's tools.
+
+It runs in Ubuntu 22.04, the board's release, so with the same Qt 6.2.4. [scripts/ci-deps.sh](../scripts/ci-deps.sh)
+installs the packages it needs.
+
+| Where | How | Takes |
+|---|---|---|
+| GitHub, every push and pull request | [.github/workflows/ci.yml](../.github/workflows/ci.yml), on GitHub's arm64 runner `ubuntu-22.04-arm` | |
+| The PC, before a commit | `sh scripts/in-docker.sh sh scripts/ci.sh` (VS Code task "CI in Docker") | 67 s from scratch, 17 s after |
+| The board, the app's tests only | `sh scripts/board.sh test` | 56–74 s |
+
+`scripts/in-docker.sh` builds an Ubuntu 22.04 image with CI's packages on first use, which takes about two
+minutes. It builds the image again whenever `ci-deps.sh` changes.
+
+**Formatting:** `sh scripts/format.sh` formats the C++ with clang-format 14, using [.clang-format](../.clang-format)
+(Qt-like, 120 columns), and the QML with qmlformat 6.2.4. On Windows, run it as
+`sh scripts/in-docker.sh sh scripts/format.sh` (VS Code task "Format"). CI runs `format.sh --check`.
+- **No arrow functions in QML:** qmlformat 6.2 turns them into invalid code. Write `function (event) { ... }`.
+- **No qmllint:** Qt 6.2's qmllint reports Qt's own `Qt` object as unqualified access.
+
+**Tests:** the app's tests run offscreen with Qt Quick's software renderer, so they need no screen and no GPU.
+Each script has its test in `scripts/tests/` or `system/tests/`, using stub commands.

@@ -1,0 +1,32 @@
+# C++ style (step 1.1), close to Qt's own, with 120 columns. The reference is clang-format 14, Ubuntu 22.04's, as
+# in CI; format with scripts/format.sh.
+BasedOnStyle: WebKit
+Standard: c++20
+ColumnLimit: 120
+AccessModifierOffset: -4
+AlignAfterOpenBracket: Align
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortLambdasOnASingleLine: All
+BreakBeforeBinaryOperators: All
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterFunction: true
+  AfterStruct: true
+  AfterUnion: true
+  SplitEmptyFunction: false
+BreakConstructorInitializers: BeforeColon
+Cpp11BracedListStyle: true
+FixNamespaceComments: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^"'
+    Priority: 1
+  - Regex: '^<Q|^<Qt'
+    Priority: 2
+  - Regex: '.*'
+    Priority: 3
+NamespaceIndentation: None
+PointerAlignment: Right
+SpaceAfterTemplateKeyword: false
+SpacesBeforeTrailingComments: 1

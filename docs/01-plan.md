@@ -3,7 +3,8 @@
 Status on 2026-11-13: steps 0.2 (backup), 0.3 (board housekeeping), 0.4 (HDMI audio), 0.5 (video spike: candidate
 B, [03-video-spike.md](03-video-spike.md)), 0.6 (UI spike: EGLFS, the UI drawn at 1080p,
 [04-ui-spike.md](04-ui-spike.md)) and 0.7 (development loop, [05-development.md](05-development.md)) are done. Phase 0
-is complete. Next: step 1.1, the app skeleton.
+is complete. In Phase 1, step 1.1 (the app skeleton, its tests, formatting and CI) is done. Next: step 1.2, start at
+boot.
 
 ## 1. Goal
 
@@ -115,19 +116,22 @@ Everything maps to one remote-control model: arrows, OK, Back, Home, Play/Pause,
   sources stay on the PC. `scripts/board.sh deploy` copies `app/` over SSH, builds it on the board and restarts it
   on the screen. Screenshots, key presses and the log come back over SSH, so the TV can stay off.
 - Large transfers (backups, test media) go over Ethernet or a USB drive; the board's Wi-Fi is too slow for them.
-- CI on GitHub Actions' arm64 runners builds and tests every push and produces a `.deb` (step 1.8).
+- CI on GitHub Actions' arm64 runner (`ubuntu-22.04-arm`, the board's Ubuntu and Qt) checks the formatting, builds
+  and tests every push (step 1.1); it will also produce a `.deb` (step 1.8). Its checks live in `scripts/ci.sh`,
+  which also runs on the PC in Docker.
 - Installing is `apt install ./rk3568-tv_<version>_arm64.deb`; Phase 3 adds updates from GitHub Releases.
 
 ### 4.7 Repository layout (planned)
 
 ```
 app/          Qt Quick application: C++ in src/, QML in qml/
-app/tests/    Qt Test
+app/tests/    Qt Test for the C++, Qt Quick Test for the QML (qml/)
 system/       systemd units, udev rules and scripts installed on the board
 system/tests/ tests for those scripts, with stub commands (plain sh)
 packaging/    Debian packaging
-scripts/      developer scripts (deploy, logs, the boot image's device tree)
+scripts/      developer scripts (deploy, logs, the boot image's device tree, formatting, CI)
 scripts/tests/ tests for those scripts
+.github/      the CI workflow
 spikes/       throwaway measurement code from the spikes, kept to reproduce their numbers (no tests)
 docs/
 ```
@@ -260,3 +264,7 @@ Decide the display and video stack on real measurements before writing the real 
 | 2026-11-13 | The app links the Mali EGL, GLES and GBM libraries itself, ahead of Qt and with `--no-as-needed` | Qt's KMS libraries have RUNPATH `$ORIGIN` and otherwise load Mesa's GBM, and Qt stops with "Could not create GBM device" |
 | 2026-11-13 | Development loop: the sources stay on the PC; `scripts/board.sh deploy` sends `app/` over SSH as a tar stream, builds it on the board with CMake and Ninja and restarts it as the transient systemd unit `rk3568-tv-dev`; VS Code tasks call it. No Remote-SSH checkout on the board | a QML change is on screen in 23 s; one copy of the repository, where git and Claude Code work; no cross-compiling sysroot to keep; the app's log goes to the journal ([05-development.md](05-development.md)) |
 | 2026-11-13 | Checking without the TV: screenshots with ffmpeg's `kmsgrab`, key presses through a `uinput` keyboard, and HDMI forced on with the last screen's EDID when the TV is off | the developer prefers not to sit at the TV; `kmsgrab` reads what Qt drew on the Mali GPU; `uinput` keys take a real keyboard's path; all of it is undone by `board.sh stop` or a reboot |
+| 2026-11-13 | CI on GitHub's `ubuntu-22.04-arm` runner with Ubuntu's own Qt 6.2.4 packages; every check in `scripts/ci.sh`, which runs the same in a local Docker image built from `scripts/ci-deps.sh` | the runner has the board's Ubuntu release, architecture and Qt packages, so a pass there means something for the board; arm64 runners are free for public repositories; the developer can run CI before pushing, and Claude can without pushing |
+| 2026-11-13 | The app's QML and its C++ types form one static QML module (`rk3568tv_ui`, URI `Rk3568Tv`, resources under `/qt/qml`), linked by the app and by the tests | the tests run the app's own code, QML included; `/qt/qml` is Qt 6.5's default, so an upgrade only removes code; Qt 6.2 needs the import path set and `import Rk3568Tv` inside the module (05-development.md) |
+| 2026-11-13 | Every input maps to one remote-control model: `RemoteKeys` turns a Qt key into an action (up, down, left, right, ok, back, home, menu, play/pause, volume) | keyboards, the TV's remote over CEC and an IR remote all arrive as Qt keys (04-ui-spike.md, finding 4); one table, tested, for all of them |
+| 2026-11-13 | Formatting: clang-format 14 with a Qt-like style at 120 columns, and qmlformat 6.2.4, both Ubuntu 22.04's, checked in CI; no arrow functions in QML; no qmllint for now | the same versions in CI, Docker and on the board, so the check never disagrees with the formatter; qmlformat 6.2 corrupts arrow functions; qmllint 6.2 reports Qt's own `Qt` object as an error |

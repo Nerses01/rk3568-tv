@@ -1,11 +1,14 @@
 # rk3568-tv
 
+[![CI](https://github.com/Nerses01/rk3568-tv/actions/workflows/ci.yml/badge.svg)](https://github.com/Nerses01/rk3568-tv/actions/workflows/ci.yml)
+
 A smart-TV interface for a Rockchip RK3568 board running Ubuntu 22.04. The board boots straight into a
 full-screen home screen, is driven with a remote or a keyboard, and plays video up to 4K with the chip's
 hardware decoder.
 
-**Status:** Phase 0, groundwork on the board; nothing to install yet. The plan is in
-[docs/01-plan.md](docs/01-plan.md).
+**Status:** Phase 1 has begun. The groundwork on the board is done, and there is an app skeleton with tests and CI;
+nothing to install yet. The plan is in [docs/01-plan.md](docs/01-plan.md); how to build and run the app is in
+[docs/05-development.md](docs/05-development.md).
 
 ## Hardware
 
@@ -28,4 +31,4 @@ may work with small changes; that is not a goal of the first version.
 | [docs/02-board.md](docs/02-board.md) | the board: hardware, partitions, access, our changes, backup and restore, known faults and their fixes |
 | [docs/03-video-spike.md](docs/03-video-spike.md) | step 0.5: how hardware-decoded video gets into the UI, with measurements |
 | [docs/04-ui-spike.md](docs/04-ui-spike.md) | step 0.6: the UI on EGLFS without a desktop, 1080p and 4K, with measurements |
-| [docs/05-development.md](docs/05-development.md) | how to build and run the app on the board, with screenshots and key presses from the PC |
+| [docs/05-development.md](docs/05-development.md) | how to build, run and test the app: on the board, with screenshots and key presses from the PC, and in CI |

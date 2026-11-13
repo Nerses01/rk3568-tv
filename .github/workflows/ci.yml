@@ -1,0 +1,32 @@
+# CI (step 1.1): every push and pull request, on GitHub's arm64 runner with Ubuntu 22.04, the board's release and so
+# the same Qt 6.2.4. Everything it checks is in scripts/ci.sh, which also runs on a PC in Docker:
+# sh scripts/in-docker.sh sh scripts/ci.sh
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Build and test (Ubuntu 22.04, arm64)
+    runs-on: ubuntu-22.04-arm
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install packages
+        run: sudo sh scripts/ci-deps.sh
+
+      - name: Check, build and test
+        run: sh scripts/ci.sh

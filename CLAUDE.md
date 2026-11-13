@@ -14,7 +14,7 @@ docs are the source of truth; read them before changing anything:
 | `docs/02-board.md` | the board: hardware, partitions, access, our changes, backup and restore, known faults and their fixes |
 | `docs/03-video-spike.md` | how video gets into the Qt Quick UI (candidate B), its numbers, and what the platform needs for it |
 | `docs/04-ui-spike.md` | the UI on EGLFS without a desktop: 1080p at 60 fps, 4K by scaling, keyboard input, and what the platform needs for it |
-| `docs/05-development.md` | the development loop: deploy, logs, screenshots and key presses with `scripts/board.sh` |
+| `docs/05-development.md` | the app's code layout; deploy, logs, screenshots and keys with `scripts/board.sh`; tests, formatting and CI |
 
 `CLAUDE.local.md` (git-ignored) holds the board's network address and how to log in. Read it before touching
 the board; if it is missing, ask the developer.
@@ -53,4 +53,7 @@ The board is the only test machine, and SSH is the only way in when nobody is at
 
 - C++20, Qt 6.2.4 from Ubuntu's apt (unless a spike changes it), CMake and Ninja.
 - Scripts that run on the board are POSIX `sh` with LF line endings; `.gitattributes` enforces LF.
-- clang-format for C++ and qmlformat for QML, set up in step 1.1.
+- clang-format 14 for C++ (`.clang-format`) and qmlformat 6.2.4 for QML: `sh scripts/format.sh`, on Windows inside
+  `sh scripts/in-docker.sh`. No arrow functions in QML; qmlformat 6.2 corrupts them.
+- Before each commit, run what CI runs: `sh scripts/in-docker.sh sh scripts/ci.sh`. It must pass. The app's tests
+  also run on the board with `sh scripts/board.sh test`.

@@ -4,6 +4,7 @@
 # so a change can be checked without sitting at the TV.
 #
 # usage: board.sh deploy        copy app/ to the board, build it there and restart it on the screen
+#        board.sh test          copy app/ to the board, build everything there and run the tests
 #        board.sh logs [-f]     the app's log: the last 100 lines, or follow it
 #        board.sh shot [FILE]   a screenshot of the board's screen, to FILE (default screenshots/latest.png)
 #        board.sh keys KEY...   press keys on the board, e.g. `board.sh keys right right enter`
@@ -26,6 +27,7 @@ die() {
 usage() {
     cat >&2 << 'EOF'
 usage: board.sh deploy        copy app/ to the board, build it there and restart it on the screen
+       board.sh test          copy app/ to the board, build everything there and run the tests
        board.sh logs [-f]     the app's log: the last 100 lines, or follow it
        board.sh shot [FILE]   a screenshot of the board's screen (default screenshots/latest.png)
        board.sh keys KEY...   press keys on the board, e.g. board.sh keys right right enter
@@ -46,15 +48,15 @@ on_board() {
     ssh -o BatchMode=yes -o ConnectTimeout=10 "$BOARD" "$@"
 }
 
-deploy() {
+send_and_run() {   # [ARG]: copy the sources to the board, then run board-run.sh [ARG] there
     start=$(date +%s)
     cd "$root" || exit 1
     # File times travel with the files, so the board rebuilds only what changed.
     tar -cf - --exclude=build --exclude='build-*' app scripts/board-run.sh scripts/board-keys.c |
         on_board "rm -rf $dir/app $dir/scripts && mkdir -p $dir && tar -xf - --no-same-owner -C $dir &&
-                  sh $dir/scripts/board-run.sh"
+                  sh $dir/scripts/board-run.sh $*"
     status=$?
-    echo "board: deploy took $(($(date +%s) - start)) s"
+    echo "board: ${*:-deploy} took $(($(date +%s) - start)) s"
     return $status
 }
 
@@ -99,11 +101,12 @@ stop() {
 cmd=${1:-}
 [ $# -gt 0 ] && shift
 case $cmd in
-deploy | logs | shot | keys | stop) need_board ;;
+deploy | test | logs | shot | keys | stop) need_board ;;
 *) usage ;;
 esac
 case $cmd in
-deploy) deploy ;;
+deploy) send_and_run ;;
+test) send_and_run test ;;
 logs) logs "$@" ;;
 shot) shot "$@" ;;
 keys) keys "$@" ;;
