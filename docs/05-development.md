@@ -19,7 +19,7 @@ Formatting, the tests and CI run the same checks everywhere: on GitHub, in Docke
 | Where | What |
 |---|---|
 | `app/CMakeLists.txt` | the app `rk3568-tv`, and the static QML module `rk3568tv_ui` (URI `Rk3568Tv`) that the app and the tests share |
-| `app/src/` | C++: `main.cpp`; the types QML uses, such as `RemoteKeys` (keys to remote-control actions); and C++ QML doesn't see, such as `UnixSignals` (a clean quit when systemd stops the app) |
+| `app/src/` | C++: `main.cpp`. Types QML uses: `RemoteKeys` (keys to remote-control actions), `SystemInfo`, `VideoLibrary` (the video files), `VideoPlayer` (playback and drawing). C++ QML doesn't see: `UnixSignals` (a clean quit when systemd stops the app), `ResumePositions` |
 | `system/` | what the board runs: the unit `rk3568-tv.service`, `install.sh`, `rk3568-tv-mode`, `rk3568-tv-screen`; tests in `system/tests/` |
 | `app/qml/` | QML: `Main.qml` (the window), `Theme.qml` (the look), `PageStack.qml` and `Page.qml` (navigation), the pages (`HomePage`, `SettingsPage`, `AboutPage`, `NotYetPage`) and their parts (`Tile`, `MenuRow`, `Clock`) |
 | `app/tests/` | Qt Test for the C++ (`tst_*.cpp`), Qt Quick Test for the QML (`qml/tst_*.qml`) |
@@ -61,7 +61,7 @@ From the repository's root, or as VS Code tasks (Terminal → Run Task; Ctrl+Shi
 | `sh scripts/board.sh test` | Board: run the tests | copies `app/` to the board, builds everything there and runs the tests, offscreen; the running app stays |
 | `sh scripts/board.sh shot [FILE]` | Board: screenshot | the board's screen as a PNG, by default `screenshots/latest.png` (git ignores the folder) |
 | `sh scripts/board.sh keys KEY...` | Board: press keys | presses keys on the board, e.g. `keys right right down enter`; `right:1500` holds a key, `wait:500` pauses |
-| `sh scripts/board.sh logs [-f]` | Board: follow the log | the app's log from the journal |
+| `sh scripts/board.sh logs [-f]` | Board: follow the log | the app's log from the journal: its own lines (`journalctl -t rk3568-tv`, not `-u`: it runs in a login session, which the journal files them under), systemd's about the unit, and the decoder library's (`mpp`). The player logs every file it plays, and on stopping how many frames arrived and how many were DMA-BUFs |
 | `sh scripts/board.sh stop` | Board: stop the app, desktop back | stops the app and starts GNOME, until the next boot or deploy |
 | `sh scripts/board.sh mode [tv\|desktop]` | | what the board boots into: shows it, or switches it (02-board.md, "TV app or desktop") |
 
@@ -139,4 +139,7 @@ minutes. It builds the image again whenever `ci-deps.sh` changes.
 - **No qmllint:** Qt 6.2's qmllint reports Qt's own `Qt` object as unqualified access.
 
 **Tests:** the app's tests run offscreen with Qt Quick's software renderer, so they need no screen and no GPU.
+The player's test makes its own videos with GStreamer (VP8, two sound tracks, subtitles). It plays them with
+software decoders in CI and with the hardware decoder on the board, and its sound goes to a `fakesink`
+(`RK3568_TV_AUDIO_SINK`).
 Each script has its test in `scripts/tests/` or `system/tests/`, using stub commands.

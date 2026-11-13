@@ -67,10 +67,10 @@ check "no address: says where to put it" has "$T/out" "BOARD=root@<address> into
 check "no address: ssh not run" hasnt "$T/ssh.args" board
 
 run logs
-check "address from .env, without the carriage return" has "$T/ssh.args" "root@board.test journalctl -u rk3568-tv -n 100 --no-pager"
+check "address from .env, without the carriage return" has "$T/ssh.args" "root@board.test journalctl _SYSTEMD_UNIT=rk3568-tv.service + SYSLOG_IDENTIFIER=rk3568-tv + SYSLOG_IDENTIFIER=mpp -n 100 --no-pager"
 check "logs: exit 0" status 0
 BOARD=root@other.test run logs -f
-check "BOARD wins over .env; logs -f follows" has "$T/ssh.args" "root@other.test journalctl -u rk3568-tv -n 50 -f"
+check "BOARD wins over .env; logs -f follows" has "$T/ssh.args" "root@other.test journalctl _SYSTEMD_UNIT=rk3568-tv.service + SYSLOG_IDENTIFIER=rk3568-tv + SYSLOG_IDENTIFIER=mpp -n 50 -f"
 run logs --all
 check "logs with a bad option: exit 2" status 2
 

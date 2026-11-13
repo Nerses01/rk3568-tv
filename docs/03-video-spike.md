@@ -97,12 +97,36 @@ What the developer saw on the screen:
    - Qt under X: finds no EGL configuration with this driver.
 10. **On EGLFS the Qt Quick UI holds 60 fps at 1920×1080** while video plays. That is also a first answer for step 0.6.
 
+## In the product (step 1.4)
+
+The app's player (`app/src/videoplayer.cpp`) uses candidate B, with three changes:
+
+- **Pipeline:** GStreamer's `playbin` replaces the hand-made pipeline. It still picks `mppvideodec`, and the decoder's
+  DMA-BUFs reach the player unchanged.
+- **10-bit:** the decoder outputs `NV12_10LE40` (DRM's NV15), and the Mali GPU imports NV15 directly. Forcing NV12
+  from the decoder instead makes its RGA conversion fail ("Error srcRect").
+- **Frames go back late enough.** At 4K60 the GPU runs frames behind its commands. Handing a frame back to the decoder
+  two frames after showing it tore the picture: the decoder was writing a buffer the GPU was still reading. Each draw
+  now ends with an EGL fence, and a frame goes back only once its fence has signalled.
+
+Measured on 2026-11-13, through the app, 10–20 s per clip. Frames counted as they reached the player; every one was a
+DMA-BUF:
+
+| Clip | Frames per second |
+|---|---|
+| H.264 1080p30, 2160p30 | 30 |
+| H.264 2160p60 | about 22: beyond the chip (finding 8) |
+| H.265 1080p30, 2160p30 | 30 |
+| H.265 2160p60 | 60 |
+| H.265 10-bit 2160p60 | 60 |
+| VP9 1080p30, 2160p30 | 30 |
+| VP9 2160p60 | 60 |
+
+With the TV off, the whole system used about 20 % of the CPU for H.264 1080p30.
+
 ## Not measured yet
 
-- B on H.265 2160p60, H.265 10-bit and VP9. The decoder alone handles H.265 2160p60 at 100 fps. B's pipeline asks for
-  8-bit NV12, so 10-bit needs a check.
-- 4K output: the monitor stops at 2560×1440, and everything ran at 1920×1080.
-- Sound, and audio/video sync.
-- Long runs and their temperature.
-
-Step 1.4 (the player) closes these.
+- **4K output:** the monitor stops at 2560×1440, and everything ran at 1920×1080. To be tested on a 4K monitor.
+- **Sound and audio/video sync, by ear.** The sound goes to HDMI, but the TV was off.
+- **HDR:** 10-bit video shows correctly, but HDR10 content isn't tone-mapped to the 8-bit picture.
+- **Long runs and their temperature.**

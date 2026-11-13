@@ -57,7 +57,7 @@ Page {
     Component {
         id: videosPage
 
-        NotYetPage {
+        VideosPage {
         }
     }
     Component {

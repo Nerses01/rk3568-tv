@@ -116,6 +116,7 @@ Made in steps 0.3 to 0.5 (2026-11-13). Copies of the edited files as the vendor 
 | `boot`: the device tree enables `hdmi-sound` (step 0.4; image SHA-256 `46ecc4d7…`) | write the vendor's image, `/userdata/dev/hdmi-audio/p03-boot.orig.img` (the same as the backup's), back to `boot` |
 | Qt Quick development packages installed (step 0.5): `qt6-declarative-dev` and QML modules, 29 Ubuntu packages, none held. Log: `/var/log/rk3568-tv-qtdev.log` | `apt purge` them |
 | Test clips in `/userdata/media/test/` (step 0.5, 400 MB); the spike's workspace in `/userdata/dev/video-spike/` | delete them |
+| `/userdata/media/tracks.mkv` (step 1.4): 30 s of a test clip with two sound tracks and subtitles, made with ffmpeg | delete it |
 | Pictures for the UI spike in `/userdata/media/posters/` (step 0.6, 16 MB); its workspace in `/userdata/dev/ui-spike/` | delete them |
 | The development loop's folder `/userdata/dev/rk3568-tv/` (step 0.7): the app's sources and build ([05-development.md](05-development.md)) | delete the folder |
 | The TV app, installed by `system/install.sh` (step 1.2): the system user `tv` (uid 999; groups video, render, input, audio; home `/var/lib/rk3568-tv`, which holds `screen.edid`), `/usr/local/bin/rk3568-tv`, `/etc/systemd/system/rk3568-tv.service`, `/usr/local/lib/rk3568-tv/rk3568-tv-screen`, `/usr/local/sbin/rk3568-tv-mode`, `/etc/rk3568-tv/kms.json` | `install.sh --remove`; then `userdel tv` and delete `/var/lib/rk3568-tv` |

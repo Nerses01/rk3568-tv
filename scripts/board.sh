@@ -19,6 +19,9 @@ set -u
 root=$(cd "$(dirname "$0")/.." && pwd)
 dir=/userdata/dev/rk3568-tv   # on the board
 unit=rk3568-tv
+# The app runs in a login session (PAMName=login), so the journal files its own lines under the session, not the
+# unit: they are found by their name, next to systemd's lines about the unit and those of the decoder library (mpp)
+journal="journalctl _SYSTEMD_UNIT=$unit.service + SYSLOG_IDENTIFIER=$unit + SYSLOG_IDENTIFIER=mpp"
 
 die() {
     echo "board: $*" >&2
@@ -64,8 +67,8 @@ send_and_run() {   # [ARG]: copy the sources to the board, then run board-run.sh
 
 logs() {
     case ${1:-} in
-    -f) on_board "journalctl -u $unit -n 50 -f --no-pager" ;;
-    '') on_board "journalctl -u $unit -n 100 --no-pager" ;;
+    -f) on_board "$journal -n 50 -f --no-pager" ;;
+    '') on_board "$journal -n 100 --no-pager" ;;
     *) usage ;;
     esac
 }

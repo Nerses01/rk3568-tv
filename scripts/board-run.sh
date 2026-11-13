@@ -1,7 +1,8 @@
 #!/bin/sh
 # Runs on the board, called by `scripts/board.sh` (steps 0.7 and 1.2). Builds the app from the sources that board.sh
 # copied, installs it with system/install.sh and restarts it: the same unit, user and settings as at boot
-# (rk3568-tv.service). Its log is in the journal (journalctl -u rk3568-tv). Build messages name files relative to
+# (rk3568-tv.service). Its own log lines are in the journal as rk3568-tv (journalctl -t rk3568-tv; under the unit,
+# only systemd's are, since the app runs in a login session). Build messages name files relative to
 # the repository, so that VS Code can open them.
 #
 # The vendor's hdmi_hotplug.service starts GNOME on every HDMI hotplug, which stops the app (docs/02-board.md). In
@@ -76,7 +77,7 @@ systemctl restart "$app" || die "$app did not start"
 
 sleep 3   # the first frame comes after about a second (docs/04-ui-spike.md)
 if ! systemctl is-active --quiet "$app"; then
-    journalctl -u "$app" -n 30 --no-pager -o cat
+    journalctl _SYSTEMD_UNIT="$app" + SYSLOG_IDENTIFIER=rk3568-tv -n 30 --no-pager -o cat
     die "the app stopped; its log is above"
 fi
 echo "board-run: rk3568-tv is running"

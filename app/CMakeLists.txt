@@ -12,6 +12,20 @@ option(RK3568_TV_LINK_MALI "Link the Mali EGL, GLES and GBM libraries ahead of Q
 option(BUILD_TESTING "Build the tests" ON)
 
 find_package(Qt6 6.2 REQUIRED COMPONENTS Gui Network Qml Quick)
+# Video: GStreamer (the board's is the vendor's 1.22, CI's Ubuntu's 1.20), and EGL and GL ES for drawing its DMA-BUFs
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GST REQUIRED IMPORTED_TARGET
+    gstreamer-1.0
+    gstreamer-allocators-1.0
+    gstreamer-app-1.0
+    gstreamer-tag-1.0
+    gstreamer-video-1.0
+)
+pkg_check_modules(GFX REQUIRED IMPORTED_TARGET
+    egl
+    glesv2
+    libdrm
+)
 
 # Qt 6.2 has no qt_standard_project_setup(); this is the part of it the app needs.
 set(CMAKE_AUTOMOC ON)
@@ -37,17 +51,25 @@ qt_add_qml_module(rk3568tv_ui
         qml/NotYetPage.qml
         qml/Page.qml
         qml/PageStack.qml
+        qml/PlayerPage.qml
         qml/SettingsPage.qml
         qml/Theme.qml
         qml/Tile.qml
+        qml/VideosPage.qml
     SOURCES
         src/remotekeys.cpp
         src/remotekeys.h
         src/systeminfo.cpp
         src/systeminfo.h
+        src/videolibrary.cpp
+        src/videolibrary.h
+        src/videoplayer.cpp
+        src/videoplayer.h
 )
 # C++ that QML doesn't see
 target_sources(rk3568tv_ui PRIVATE
+    src/resumepositions.cpp
+    src/resumepositions.h
     src/unixsignals.cpp
     src/unixsignals.h
 )
@@ -56,6 +78,8 @@ target_link_libraries(rk3568tv_ui PUBLIC
     Qt6::Network
     Qt6::Qml
     Qt6::Quick
+    PkgConfig::GST
+    PkgConfig::GFX
 )
 
 qt_add_executable(rk3568-tv

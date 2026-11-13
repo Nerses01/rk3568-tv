@@ -26,7 +26,7 @@ tv)
     systemctl mask "$hotplug" > /dev/null 2>&1 || die "cannot mask $hotplug"
     systemctl set-default multi-user.target > /dev/null 2>&1 || die "cannot set the default target"
     systemctl enable "$app" > /dev/null 2>&1 || die "cannot enable $app"
-    systemctl start "$app" || die "$app did not start: journalctl -u $app"
+    systemctl start "$app" || die "$app did not start: journalctl -u $app; its own lines: journalctl -t rk3568-tv"
     echo "rk3568-tv-mode: the TV app, now and at every boot"
     ;;
 desktop)

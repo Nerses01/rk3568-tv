@@ -5,7 +5,8 @@ B, [03-video-spike.md](03-video-spike.md)), 0.6 (UI spike: EGLFS, the UI drawn a
 [04-ui-spike.md](04-ui-spike.md)) and 0.7 (development loop, [05-development.md](05-development.md)) are done. Phase 0
 is complete. In Phase 1, steps 1.1 (the app skeleton, its tests, formatting and CI), 1.2 (start at boot: the board
 boots into the TV app, [02-board.md](02-board.md), "TV app or desktop") and 1.3 (navigation and the home screen,
-[05-development.md](05-development.md), "UI conventions") are done. Next: step 1.4, the player.
+[05-development.md](05-development.md), "UI conventions") and 1.4 (the player, [03-video-spike.md](03-video-spike.md),
+"In the product") are done. Next: step 1.5, local media and USB drives.
 
 ## 1. Goal
 
@@ -212,7 +213,7 @@ Decide the display and video stack on real measurements before writing the real 
 
 | Risk | Effect | What we do |
 |---|---|---|
-| Hardware-decoded video can't be shown inside Qt Quick without copies | 4K stutters | settled by spike 0.5: candidate B shows 2160p30 without copies; 2160p60, 10-bit and VP9 are confirmed in 1.4 |
+| Hardware-decoded video can't be shown inside Qt Quick without copies | 4K stutters | settled: candidate B shows 2160p30 without copies (0.5), and H.265 and VP9 2160p60, 10-bit included, in the player (1.4); H.264 2160p60 is beyond the chip |
 | The Mali driver doesn't work with Qt's EGLFS | no desktop-free start | settled by spike 0.6: it works, 60 fps at 1080p, once the app links the Mali libraries itself |
 | The vendor's `hdmi_hotplug.service` starts GNOME on every HDMI hotplug | switching the TV off and on brings the desktop over the app | settled by step 1.2: TV mode masks it, desktop mode unmasks it |
 | On a 4K screen, video drawn in the UI (candidate B) is limited to the UI's 1080p framebuffer | 4K video shows at 1080p | step 1.4: a 4K framebuffer while playing, or video on its own plane (candidate C); tested on the developer's 4K monitor at the office |
@@ -275,6 +276,10 @@ Decide the display and video stack on real measurements before writing the real 
 | 2026-11-13 | The unit restarts the app 3 s after any exit, with no start limit; before each start, `rk3568-tv-screen` stands in for a switched-off TV with the last screen's EDID | a TV box has nobody to restart its app; with the TV off at boot, the app would otherwise find no screen |
 | 2026-11-13 | Navigation: our own `PageStack` (no Qt Quick Controls); OK opens, Back goes back one page, Home goes to the first; a page gets its focus back where it left it; keys go through `RemoteKeys`, and a key without an action goes to the log (for the remotes' codes, step 1.7) | four rules that every page follows; Controls would bring styles and a dependency for one `StackView` |
 | 2026-11-13 | The 10-foot look in one `Theme` singleton: 1920×1080 layout units scaled to the screen, a 5 % title-safe margin, type 28/36/48/64 px (modular scale, nothing below 28 for 3 m), a dark theme, focus shown by a white frame and a 6 % larger item (not by colour alone), animations of 150–250 ms that one switch turns off | tested on every page: no text below 28 px and none outside the safe area; the same picture at 1080p and with a 4K framebuffer |
+| 2026-11-13 | The UI stays plain and functional; the effort goes into function | the developer designs the real UI and hands it over at the end |
+| 2026-11-13 | The player: `playbin` with our sinks. Video goes to an `appsink` for candidate B's renderer, as NV12 or 10-bit NV12_10LE40, which the Mali GPU imports as NV15. Sound goes to HDMI (`plughw:CARD=rockchiphdmi`), subtitles to an `appsink` as text for QML. A `.srt` next to the file is used too | `playbin` brings demuxing, decoder choice, sound, seeking and tracks; the decoder's DMA-BUFs still reach the renderer unchanged; subtitles as text cost no video work; 10-bit through the RGA failed, NV15 import works |
+| 2026-11-13 | A video frame goes back to the decoder only after the EGL fence of its last draw has signalled | without that, the picture tore at 4K60; with it, 60 fps holds |
+| 2026-11-13 | The player keys: OK and Play/Pause pause; left goes back 10 s and right on 30 s; up changes the sound track, down the subtitles (off first). Back closes, and the file goes on from there next time, unless that is within the first 10 s or the last 30 s | functional until the developer's design; the rules are tested |
 | 2026-11-13 | Icons from the DejaVu font's symbols for now, no SVG | the board's Qt 6 SVG plugin wasn't installed from a package (Ubuntu's `libqt6svg6` is not installed; an unpackaged copy is); the package of step 1.8 can depend on `libqt6svg6` if icons need more |
 | 2026-11-13 | A deploy installs the build and restarts the real unit; the transient development unit is gone | development runs the app exactly as the board runs it from boot, so nothing differs between the two; until the package of step 1.8, the last deploy is the installed app |
 | 2026-11-13 | Formatting: clang-format 14 with a Qt-like style at 120 columns, and qmlformat 6.2.4, both Ubuntu 22.04's, checked in CI; no arrow functions in QML; no qmllint for now | the same versions in CI, Docker and on the board, so the check never disagrees with the formatter; qmlformat 6.2 corrupts arrow functions; qmllint 6.2 reports Qt's own `Qt` object as an error |

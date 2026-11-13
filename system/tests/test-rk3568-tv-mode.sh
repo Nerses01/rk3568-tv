@@ -66,7 +66,7 @@ check "tv without the app installed: nothing changed" hasnt "$T/calls" "set-defa
 
 START_FAILS=rk3568-tv.service run tv
 check "tv, the app doesn't start: exit 1" status 1
-check "tv, the app doesn't start: points to its log" has "$T/out" "journalctl -u rk3568-tv.service"
+check "tv, the app doesn't start: points to its log" has "$T/out" "journalctl -t rk3568-tv"
 
 run desktop
 check "desktop: exit 0" status 0
