@@ -205,7 +205,7 @@ Decide the display and video stack on real measurements before writing the real 
 |---|---|---|
 | Hardware-decoded video can't be shown inside Qt Quick without copies | 4K stutters | settled by spike 0.5: candidate B shows 2160p30 without copies; 2160p60, 10-bit and VP9 are confirmed in 1.4 |
 | The Mali driver doesn't work with Qt's EGLFS | no desktop-free start | settled by spike 0.6: it works, 60 fps at 1080p, once the app links the Mali libraries itself |
-| On a 4K screen, video drawn in the UI (candidate B) is limited to the UI's 1080p framebuffer | 4K video shows at 1080p | step 1.4: a 4K framebuffer while playing, or video on its own plane (candidate C); needs a 4K screen to test |
+| On a 4K screen, video drawn in the UI (candidate B) is limited to the UI's 1080p framebuffer | 4K video shows at 1080p | step 1.4: a 4K framebuffer while playing, or video on its own plane (candidate C); tested on the developer's 4K monitor at the office |
 | HDMI audio can't be enabled | no sound on the TV | 0.4 early; fallbacks: Bluetooth speaker, analog output |
 | A boot-partition change leaves the board unbootable | board out of action | backup and reflash procedure (0.2); the FLASH button reaches loader mode without Ubuntu (tested in 0.4); `scripts/boot-dtb.sh` checks an image before it is written |
 | The backup is lost or damaged | no way back: no vendor image matches this board | checksums in the backup folder; a second copy off the PC |
@@ -221,7 +221,8 @@ Decide the display and video stack on real measurements before writing the real 
 2. A licence for the public repository (none yet, which means all rights reserved).
 3. Which sources matter most after local files: IPTV, YouTube, Jellyfin? That orders Phase 2.
 4. The TV or monitor: does it have 4K, HDR, HDMI-CEC? Its remote decides how much 1.7 gives. Partly answered in
-   0.6: the TV in use, a Sharp from 2013, has 1080p at most and HDMI-CEC. Is a 4K screen available for testing?
+   0.6: the TV in use, a Sharp from 2013, has 1080p at most and HDMI-CEC. A 4K monitor at the developer's office
+   is available for testing, first on 2026-11-16.
 5. Is there a Jellyfin or Plex server at home, or a NAS with media?
 6. Is there an IR remote to use, or will one be bought?
 7. Can GZPEITE supply this board's factory image and its kernel source? Not needed now; it would give a second

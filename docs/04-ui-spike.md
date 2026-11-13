@@ -63,7 +63,8 @@ The code and the raw results are in [spikes/0.6-ui/](../spikes/0.6-ui/).
 - **Startup:** the first frame came 0.8–1.0 s after the process started.
 
 With the real USB keyboard (a Chicony keyboard in the upper USB 3.0 port), the developer browsed for 112 s at 1080p.
-All 39 presses and 55 repeats arrived; the UI ran at 59.9 fps with 7 late frames.
+All 39 presses and 55 repeats arrived; the UI ran at 59.9 fps with 7 late frames. The developer saw no lag or
+freeze.
 
 ## Why this choice
 
@@ -115,7 +116,7 @@ All 39 presses and 55 repeats arrived; the UI ran at 59.9 fps with 7 late frames
 ## Not measured yet
 
 - **A real 4K screen:** its 4K modes, and a 1080p framebuffer scaled up. This spike showed only the scaler working
-  downwards.
+  downwards. A 4K monitor at the developer's office is planned for 2026-11-16.
 - **Video on a 4K screen.** Candidate B draws video inside the UI's framebuffer, so with a 1080p framebuffer, 4K
   video would show at 1080p. The player (step 1.4) then needs a 4K framebuffer while playing, when only the video
   and a light overlay change, or video on its own plane (candidate C).
