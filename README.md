@@ -6,8 +6,9 @@ A smart-TV interface for a Rockchip RK3568 board running Ubuntu 22.04. The board
 full-screen home screen, is driven with a remote or a keyboard, and plays video up to 4K with the chip's
 hardware decoder.
 
-**Status:** Phase 1 has begun. The groundwork on the board is done; the board boots into the app, which is still a
-placeholder screen, and the app has tests and CI. There is no package to install yet. The plan is in [docs/01-plan.md](docs/01-plan.md); how to build and run the app is in
+**Status:** Phase 1 has begun. The groundwork on the board is done; the board boots into the app, which has a home
+screen, navigation with the remote's keys and an About page, with tests and CI. Videos and the rest of Settings come
+next. There is no package to install yet. The plan is in [docs/01-plan.md](docs/01-plan.md); how to build and run the app is in
 [docs/05-development.md](docs/05-development.md).
 
 ## Hardware

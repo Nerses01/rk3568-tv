@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(RK3568_TV_LINK_MALI "Link the Mali EGL, GLES and GBM libraries ahead of Qt (needed on the board)" ON)
 option(BUILD_TESTING "Build the tests" ON)
 
-find_package(Qt6 6.2 REQUIRED COMPONENTS Gui Qml Quick)
+find_package(Qt6 6.2 REQUIRED COMPONENTS Gui Network Qml Quick)
 
 # Qt 6.2 has no qt_standard_project_setup(); this is the part of it the app needs.
 set(CMAKE_AUTOMOC ON)
@@ -22,15 +22,29 @@ add_compile_options(-Wall -Wextra)
 # Its resources go under /qt/qml, Qt 6.5's default; Qt 6.2 needs that import path added (src/main.cpp,
 # tests/tst_qml.cpp).
 qt_add_library(rk3568tv_ui STATIC)
+set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 qt_add_qml_module(rk3568tv_ui
     URI Rk3568Tv
     VERSION 1.0
+    OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/Rk3568Tv
     RESOURCE_PREFIX /qt/qml
     QML_FILES
+        qml/AboutPage.qml
+        qml/Clock.qml
+        qml/HomePage.qml
         qml/Main.qml
+        qml/MenuRow.qml
+        qml/NotYetPage.qml
+        qml/Page.qml
+        qml/PageStack.qml
+        qml/SettingsPage.qml
+        qml/Theme.qml
+        qml/Tile.qml
     SOURCES
         src/remotekeys.cpp
         src/remotekeys.h
+        src/systeminfo.cpp
+        src/systeminfo.h
 )
 # C++ that QML doesn't see
 target_sources(rk3568tv_ui PRIVATE
@@ -39,6 +53,7 @@ target_sources(rk3568tv_ui PRIVATE
 )
 target_include_directories(rk3568tv_ui PUBLIC src)
 target_link_libraries(rk3568tv_ui PUBLIC
+    Qt6::Network
     Qt6::Qml
     Qt6::Quick
 )

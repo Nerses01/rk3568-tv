@@ -1,52 +1,52 @@
 import QtQuick
-import Rk3568Tv // the module's own C++ types: in Qt 6.2 a file in qml/ doesn't see them without it
+import Rk3568Tv // the module's own types: in Qt 6.2 a file in qml/ doesn't see them without it
 
-// A placeholder until step 1.3 builds the home screen. It shows the version, when the app started and the last
-// key pressed, so that a deploy and the keys can be checked on the screen, or without sitting at the TV with
-// `scripts/board.sh keys` and `scripts/board.sh shot`. A key that is no remote-control action shows as its Qt
-// key code, which helps to find the codes of the TV's remote (step 1.7).
+// The app's window: its pages, laid out in 1920x1080 units and scaled to the screen. Back and Home work on every
+// page; a key no page takes goes to the log, which helps to find the codes of the TV's remote (step 1.7).
 Window {
-    id: root
+    id: window
 
-    readonly property real unit: height / 1080   // layout units: designed for 1920x1080
-    readonly property string startedAt: Qt.formatTime(new Date(), "hh:mm:ss")
-    property string lastKey: "none yet"
+    readonly property alias pages: pages
+    readonly property real unitScale: Math.min(window.width / Theme.width, window.height / Theme.height)
 
-    color: "#0b0e12"
+    color: Theme.background
     title: Qt.application.name
     visibility: Window.FullScreen
     visible: true
 
-    Column {
-        anchors.centerIn: parent
+    FocusScope {
         focus: true
-        spacing: 24 * root.unit
+        height: Theme.height
+        scale: window.unitScale
+        transformOrigin: Item.TopLeft
+        width: Theme.width
+        x: (window.width - Theme.width * window.unitScale) / 2
+        y: (window.height - Theme.height * window.unitScale) / 2
 
-        // a function, not an arrow function: qmlformat 6.2 breaks arrow functions (scripts/format.sh)
         Keys.onPressed: function (event) {
             const action = RemoteKeys.action(event.key);
-            const name = action === RemoteKeys.None ? "0x" + event.key.toString(16) : RemoteKeys.name(action);
-            root.lastKey = name + (event.isAutoRepeat ? " (repeat)" : "");
+            if (action === RemoteKeys.Back) {
+                event.accepted = pages.pop();
+            } else if (action === RemoteKeys.Home) {
+                pages.popToFirst();
+                event.accepted = true;
+            } else if (action === RemoteKeys.None) {
+                console.info("a key without an action: 0x" + event.key.toString(16));
+            }
         }
 
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            color: "white"
-            font.pixelSize: 96 * root.unit
-            font.bold: true
-            text: Qt.application.name
+        PageStack {
+            id: pages
+
+            anchors.fill: parent
+
+            Component.onCompleted: pages.push(homePage)
         }
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            color: "#a0a8b0"
-            font.pixelSize: 36 * root.unit
-            text: "version " + Qt.application.version + "  ·  started " + root.startedAt
-        }
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            color: "#a0a8b0"
-            font.pixelSize: 36 * root.unit
-            text: "last key: " + root.lastKey
+        Component {
+            id: homePage
+
+            HomePage {
+            }
         }
     }
 }

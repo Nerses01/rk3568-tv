@@ -8,8 +8,9 @@
 # Windows, say), run it in CI's environment: sh scripts/in-docker.sh sh scripts/format.sh
 # CLANG_FORMAT and QMLFORMAT name other binaries.
 #
-# qmlformat 6.2 turns arrow functions into invalid code (`x => { ... }` in a handler, `() => a` as an argument) and
-# then fails: in QML, write `function (x) { ... }` instead.
+# qmlformat 6.2 turns some JavaScript into invalid code, and then fails. In QML, write `function (x) { ... }`, not
+# an arrow function (`x => { ... }` in a handler, `() => a` as an argument), and `for (const x of list)`, not
+# `for (let i = 0; ...)`.
 set -u
 
 root=$(cd "$(dirname "$0")/.." && pwd)

@@ -57,6 +57,7 @@ The board is the only test machine, and SSH is the only way in when nobody is at
 - C++20, Qt 6.2.4 from Ubuntu's apt (unless a spike changes it), CMake and Ninja.
 - Scripts that run on the board are POSIX `sh` with LF line endings; `.gitattributes` enforces LF.
 - clang-format 14 for C++ (`.clang-format`) and qmlformat 6.2.4 for QML: `sh scripts/format.sh`, on Windows inside
-  `sh scripts/in-docker.sh`. No arrow functions in QML; qmlformat 6.2 corrupts them.
+  `sh scripts/in-docker.sh`. No arrow functions and no `for (let ...)` loops in QML; qmlformat 6.2 corrupts them.
+- UI: sizes, colours and fonts come from `Theme`; follow "UI conventions" in docs/05-development.md.
 - Before each commit, run what CI runs: `sh scripts/in-docker.sh sh scripts/ci.sh`. It must pass. The app's tests
   also run on the board with `sh scripts/board.sh test`.

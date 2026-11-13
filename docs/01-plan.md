@@ -3,9 +3,9 @@
 Status on 2026-11-13: steps 0.2 (backup), 0.3 (board housekeeping), 0.4 (HDMI audio), 0.5 (video spike: candidate
 B, [03-video-spike.md](03-video-spike.md)), 0.6 (UI spike: EGLFS, the UI drawn at 1080p,
 [04-ui-spike.md](04-ui-spike.md)) and 0.7 (development loop, [05-development.md](05-development.md)) are done. Phase 0
-is complete. In Phase 1, steps 1.1 (the app skeleton, its tests, formatting and CI) and 1.2 (start at boot: the board
-boots into the TV app, [02-board.md](02-board.md), "TV app or desktop") are done. Next: step 1.3, navigation and the
-home screen.
+is complete. In Phase 1, steps 1.1 (the app skeleton, its tests, formatting and CI), 1.2 (start at boot: the board
+boots into the TV app, [02-board.md](02-board.md), "TV app or desktop") and 1.3 (navigation and the home screen,
+[05-development.md](05-development.md), "UI conventions") are done. Next: step 1.4, the player.
 
 ## 1. Goal
 
@@ -273,5 +273,8 @@ Decide the display and video stack on real measurements before writing the real 
 | 2026-11-13 | TV mode: default target `multi-user.target`, `rk3568-tv.service` enabled, the vendor's `hdmi_hotplug.service` masked; `rk3568-tv-mode tv` and `rk3568-tv-mode desktop` switch, and GNOME stays installed. The app's unit and GNOME's conflict | one command each way, tested with reboots both ways; nothing of the vendor's is removed; networking and SSH are wanted by `multi-user.target`; the desktop takes 320 MB more memory |
 | 2026-11-13 | The app quits through its event loop on SIGTERM and SIGINT (`UnixSignals`) | Qt's own handler on EGLFS exits with status 1, so systemd counted every stop as a failure, and none of the app's shutdown ran |
 | 2026-11-13 | The unit restarts the app 3 s after any exit, with no start limit; before each start, `rk3568-tv-screen` stands in for a switched-off TV with the last screen's EDID | a TV box has nobody to restart its app; with the TV off at boot, the app would otherwise find no screen |
+| 2026-11-13 | Navigation: our own `PageStack` (no Qt Quick Controls); OK opens, Back goes back one page, Home goes to the first; a page gets its focus back where it left it; keys go through `RemoteKeys`, and a key without an action goes to the log (for the remotes' codes, step 1.7) | four rules that every page follows; Controls would bring styles and a dependency for one `StackView` |
+| 2026-11-13 | The 10-foot look in one `Theme` singleton: 1920×1080 layout units scaled to the screen, a 5 % title-safe margin, type 28/36/48/64 px (modular scale, nothing below 28 for 3 m), a dark theme, focus shown by a white frame and a 6 % larger item (not by colour alone), animations of 150–250 ms that one switch turns off | tested on every page: no text below 28 px and none outside the safe area; the same picture at 1080p and with a 4K framebuffer |
+| 2026-11-13 | Icons from the DejaVu font's symbols for now, no SVG | the board's Qt 6 SVG plugin wasn't installed from a package (Ubuntu's `libqt6svg6` is not installed; an unpackaged copy is); the package of step 1.8 can depend on `libqt6svg6` if icons need more |
 | 2026-11-13 | A deploy installs the build and restarts the real unit; the transient development unit is gone | development runs the app exactly as the board runs it from boot, so nothing differs between the two; until the package of step 1.8, the last deploy is the installed app |
 | 2026-11-13 | Formatting: clang-format 14 with a Qt-like style at 120 columns, and qmlformat 6.2.4, both Ubuntu 22.04's, checked in CI; no arrow functions in QML; no qmllint for now | the same versions in CI, Docker and on the board, so the check never disagrees with the formatter; qmlformat 6.2 corrupts arrow functions; qmllint 6.2 reports Qt's own `Qt` object as an error |

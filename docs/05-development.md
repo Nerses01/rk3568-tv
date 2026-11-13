@@ -21,13 +21,35 @@ Formatting, the tests and CI run the same checks everywhere: on GitHub, in Docke
 | `app/CMakeLists.txt` | the app `rk3568-tv`, and the static QML module `rk3568tv_ui` (URI `Rk3568Tv`) that the app and the tests share |
 | `app/src/` | C++: `main.cpp`; the types QML uses, such as `RemoteKeys` (keys to remote-control actions); and C++ QML doesn't see, such as `UnixSignals` (a clean quit when systemd stops the app) |
 | `system/` | what the board runs: the unit `rk3568-tv.service`, `install.sh`, `rk3568-tv-mode`, `rk3568-tv-screen`; tests in `system/tests/` |
-| `app/qml/` | QML: `Main.qml`, the window |
+| `app/qml/` | QML: `Main.qml` (the window), `Theme.qml` (the look), `PageStack.qml` and `Page.qml` (navigation), the pages (`HomePage`, `SettingsPage`, `AboutPage`, `NotYetPage`) and their parts (`Tile`, `MenuRow`, `Clock`) |
 | `app/tests/` | Qt Test for the C++ (`tst_*.cpp`), Qt Quick Test for the QML (`qml/tst_*.qml`) |
 
 Qt 6.2 needs a few things that later versions don't:
 - The module's resources sit under `qrc:/qt/qml`, and the app and the QML tests add that import path themselves.
 - A QML file in the module imports the module (`import Rk3568Tv`) to see its C++ types.
 - A header with `QML_ELEMENT` or `QML_SINGLETON` includes `<QtQml/qqml.h>`.
+
+## UI conventions (step 1.3)
+
+The UI is made for a TV about 3 m away and is driven only by a remote or a keyboard: arrows, OK, Back and Home.
+
+- **Layout units:** the UI is laid out at 1920×1080, and `Main.qml` scales it to the screen. Take every size, colour,
+  font and duration from `Theme`. Text is at least `Theme.textCaption` (28), and everything stays inside the safe
+  area (`Theme.safeX`, `Theme.safeY`). `tst_tenfoot.qml` checks both rules on every page; a new page goes into that
+  test.
+- **Pages:** a screen is a `Page`, which provides the title, the clock and the safe area. A page opens another with
+  `stack.push(component, { "title": ... })`.
+  - `Main.qml` handles Back and Home for every page: Back pops one page, Home goes back to the first.
+  - A page that comes back gets its focus back where it left it.
+- **Lists:** use a `ListView` with `focus: true`, `interactive: false` (there is no pointer) and
+  `keyNavigationEnabled: true`. Qt 6.2 ties key navigation to `interactive`, so without it the arrows do nothing.
+  - OK is handled in the list's `Keys.onPressed`, through `RemoteKeys`. Every other key is passed on with
+    `event.accepted = false`.
+  - The delegate shows the focus with `highlighted: ListView.isCurrentItem && view.activeFocus`.
+- **Focus** shows by shape as well as colour: a white frame, and for tiles a 6 % larger size.
+- **Strings** visible to the viewer go through `qsTr()`.
+- **Keys without an action** are logged ("a key without an action: 0x…"), so that a remote's codes can be read with
+  `board.sh logs`.
 
 ## Commands
 
@@ -110,7 +132,10 @@ minutes. It builds the image again whenever `ci-deps.sh` changes.
 **Formatting:** `sh scripts/format.sh` formats the C++ with clang-format 14, using [.clang-format](../.clang-format)
 (Qt-like, 120 columns), and the QML with qmlformat 6.2.4. On Windows, run it as
 `sh scripts/in-docker.sh sh scripts/format.sh` (VS Code task "Format"). CI runs `format.sh --check`.
-- **No arrow functions in QML:** qmlformat 6.2 turns them into invalid code. Write `function (event) { ... }`.
+- **No arrow functions in QML, and no `for (let ...)` loops:** qmlformat 6.2 turns both into invalid code.
+  - Write `function (event) { ... }`.
+  - Over arrays, loop with `for (const x of list)`. Over QML lists such as `children`, which Qt 6.2 can't iterate,
+    use `for (var i = 0; ...)`.
 - **No qmllint:** Qt 6.2's qmllint reports Qt's own `Qt` object as unqualified access.
 
 **Tests:** the app's tests run offscreen with Qt Quick's software renderer, so they need no screen and no GPU.
