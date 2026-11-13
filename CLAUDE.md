@@ -24,7 +24,8 @@ the board; if it is missing, ask the developer.
 - One plan step at a time. Each step ends with its "done when" met and one commit by Claude, in Conventional
   Commits style (`feat:`, `fix:`, `docs:`, `chore:`, `test:`, `ci:`), with the attribution trailer.
 - Claude never pushes and never rewrites history unless the developer asks for it in that conversation.
-- Work on `main` until CI exists; revisit branching then.
+- Work on `main`, one commit per step. CI exists since step 1.1, and its checks run in Docker before each commit, so
+  `main` stays green (decided 2026-11-13).
 - New code comes with tests.
 - Significant technical choices get a row in the decisions log (`docs/01-plan.md` §8).
 - English everywhere in the repository.
