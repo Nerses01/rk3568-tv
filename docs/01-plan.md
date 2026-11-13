@@ -3,8 +3,9 @@
 Status on 2026-11-13: steps 0.2 (backup), 0.3 (board housekeeping), 0.4 (HDMI audio), 0.5 (video spike: candidate
 B, [03-video-spike.md](03-video-spike.md)), 0.6 (UI spike: EGLFS, the UI drawn at 1080p,
 [04-ui-spike.md](04-ui-spike.md)) and 0.7 (development loop, [05-development.md](05-development.md)) are done. Phase 0
-is complete. In Phase 1, step 1.1 (the app skeleton, its tests, formatting and CI) is done. Next: step 1.2, start at
-boot.
+is complete. In Phase 1, steps 1.1 (the app skeleton, its tests, formatting and CI) and 1.2 (start at boot: the board
+boots into the TV app, [02-board.md](02-board.md), "TV app or desktop") are done. Next: step 1.3, navigation and the
+home screen.
 
 ## 1. Goal
 
@@ -213,7 +214,7 @@ Decide the display and video stack on real measurements before writing the real 
 |---|---|---|
 | Hardware-decoded video can't be shown inside Qt Quick without copies | 4K stutters | settled by spike 0.5: candidate B shows 2160p30 without copies; 2160p60, 10-bit and VP9 are confirmed in 1.4 |
 | The Mali driver doesn't work with Qt's EGLFS | no desktop-free start | settled by spike 0.6: it works, 60 fps at 1080p, once the app links the Mali libraries itself |
-| The vendor's `hdmi_hotplug.service` starts GNOME on every HDMI hotplug | switching the TV off and on brings the desktop over the app | the development loop masks it while the app runs; step 1.2 settles it for good |
+| The vendor's `hdmi_hotplug.service` starts GNOME on every HDMI hotplug | switching the TV off and on brings the desktop over the app | settled by step 1.2: TV mode masks it, desktop mode unmasks it |
 | On a 4K screen, video drawn in the UI (candidate B) is limited to the UI's 1080p framebuffer | 4K video shows at 1080p | step 1.4: a 4K framebuffer while playing, or video on its own plane (candidate C); tested on the developer's 4K monitor at the office |
 | HDMI audio can't be enabled | no sound on the TV | 0.4 early; fallbacks: Bluetooth speaker, analog output |
 | A boot-partition change leaves the board unbootable | board out of action | backup and reflash procedure (0.2); the FLASH button reaches loader mode without Ubuntu (tested in 0.4); `scripts/boot-dtb.sh` checks an image before it is written |
@@ -268,4 +269,9 @@ Decide the display and video stack on real measurements before writing the real 
 | 2026-11-13 | The app's QML and its C++ types form one static QML module (`rk3568tv_ui`, URI `Rk3568Tv`, resources under `/qt/qml`), linked by the app and by the tests | the tests run the app's own code, QML included; `/qt/qml` is Qt 6.5's default, so an upgrade only removes code; Qt 6.2 needs the import path set and `import Rk3568Tv` inside the module (05-development.md) |
 | 2026-11-13 | Every input maps to one remote-control model: `RemoteKeys` turns a Qt key into an action (up, down, left, right, ok, back, home, menu, play/pause, volume) | keyboards, the TV's remote over CEC and an IR remote all arrive as Qt keys (04-ui-spike.md, finding 4); one table, tested, for all of them |
 | 2026-11-13 | Work stays on `main` now that CI exists: one commit per step; CI's checks run in Docker before each commit | the developer's choice for a solo project: no pull-request overhead, and `main` stays green |
+| 2026-11-13 | The app runs from boot as the system user `tv` (groups video, render, input, audio), in a logind session on tty1 (`PAMName=login`), in place of tty1's login prompt | every device it needs belongs to those groups; the session gives it `XDG_RUNTIME_DIR`; on its own tty Qt switches the console keyboard off, so keys reach only the app and Ctrl+Alt+Del can't restart the board |
+| 2026-11-13 | TV mode: default target `multi-user.target`, `rk3568-tv.service` enabled, the vendor's `hdmi_hotplug.service` masked; `rk3568-tv-mode tv` and `rk3568-tv-mode desktop` switch, and GNOME stays installed. The app's unit and GNOME's conflict | one command each way, tested with reboots both ways; nothing of the vendor's is removed; networking and SSH are wanted by `multi-user.target`; the desktop takes 320 MB more memory |
+| 2026-11-13 | The app quits through its event loop on SIGTERM and SIGINT (`UnixSignals`) | Qt's own handler on EGLFS exits with status 1, so systemd counted every stop as a failure, and none of the app's shutdown ran |
+| 2026-11-13 | The unit restarts the app 3 s after any exit, with no start limit; before each start, `rk3568-tv-screen` stands in for a switched-off TV with the last screen's EDID | a TV box has nobody to restart its app; with the TV off at boot, the app would otherwise find no screen |
+| 2026-11-13 | A deploy installs the build and restarts the real unit; the transient development unit is gone | development runs the app exactly as the board runs it from boot, so nothing differs between the two; until the package of step 1.8, the last deploy is the installed app |
 | 2026-11-13 | Formatting: clang-format 14 with a Qt-like style at 120 columns, and qmlformat 6.2.4, both Ubuntu 22.04's, checked in CI; no arrow functions in QML; no qmllint for now | the same versions in CI, Docker and on the board, so the check never disagrees with the formatter; qmlformat 6.2 corrupts arrow functions; qmllint 6.2 reports Qt's own `Qt` object as an error |

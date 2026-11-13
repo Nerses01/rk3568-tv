@@ -32,6 +32,11 @@ qt_add_qml_module(rk3568tv_ui
         src/remotekeys.cpp
         src/remotekeys.h
 )
+# C++ that QML doesn't see
+target_sources(rk3568tv_ui PRIVATE
+    src/unixsignals.cpp
+    src/unixsignals.h
+)
 target_include_directories(rk3568tv_ui PUBLIC src)
 target_link_libraries(rk3568tv_ui PUBLIC
     Qt6::Qml

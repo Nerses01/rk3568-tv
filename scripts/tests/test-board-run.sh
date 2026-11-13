@@ -1,6 +1,6 @@
 #!/bin/sh
-# Tests for scripts/board-run.sh. Stubs stand in for cmake, gcc, systemctl, systemd-run, journalctl and sleep, so
-# they run anywhere with a POSIX shell (the PC's Git Bash, the board).
+# Tests for scripts/board-run.sh. Stubs stand in for cmake, ctest, gcc, systemctl, journalctl, sleep, install.sh and
+# the screen tool, so they run anywhere with a POSIX shell (the PC's Git Bash, the board).
 # usage: sh scripts/tests/test-board-run.sh   (exit status 0 when all tests pass)
 set -u
 
@@ -25,12 +25,13 @@ before() {   # FILE A B: A first appears before B
 }
 
 src=$T/src
-mkdir -p "$src/app" "$src/scripts" "$T/bin"
+mkdir -p "$src/app" "$src/scripts" "$src/system" "$T/bin"
 echo 'int main(void) { return 0; }' > "$src/scripts/board-keys.c"
 
 # Each stub writes its name and arguments to calls. cmake configures by creating build.ninja; a build prints a
-# compiler message with the board's path and fails with CMAKE_STATUS. systemctl is-active fails with
-# ACTIVE_STATUS. gcc creates its output.
+# compiler message with the board's path and fails with CMAKE_STATUS. ctest fails with CTEST_STATUS. systemctl
+# is-active fails with ACTIVE_STATUS, start with GDM_STATUS. install.sh fails with INSTALL_STATUS. gcc creates its
+# output.
 stub() {   # NAME BODY
     printf '#!/bin/sh\necho "%s $*" >> "%s/calls"\n%s\n' "$1" "$T" "$2" > "$T/bin/$1"
     chmod +x "$T/bin/$1"
@@ -39,57 +40,37 @@ stub cmake 'case "$1" in
 -S) touch "$4/build.ninja" ;;
 --build) echo "$(dirname "$2")/app/src/main.cpp:3:1: error: expected ;"; exit ${CMAKE_STATUS:-0} ;;
 esac'
-stub gcc 'while [ $# -gt 0 ]; do [ "$1" = -o ] && echo "#!/bin/sh" > "$2" && chmod +x "$2"; shift; done'   # Git Bash: executable means #!
-stub systemctl 'case "$1" in is-active) exit ${ACTIVE_STATUS:-0} ;; esac'
-stub systemd-run ''
-stub journalctl 'echo "qrc:/Rk3568Tv/qml/Main.qml:5: something went wrong"'
-stub sleep ''
 stub ctest 'echo "$(dirname "$2")/app/tests/tst_x.cpp: FAIL!"; exit ${CTEST_STATUS:-0}'
-# HDMI in sysfs and debugfs, played by files and a tee that acts like the kernel: "detect" on status leaves the
-# cable's state (CABLE, default connected) in it, "on" forces it connected, "reset" clears the EDID override.
-mkdir -p "$T/hdmi" "$T/debug"
-echo connected > "$T/hdmi/status"
-echo TV-EDID > "$T/hdmi/edid"
-: > "$T/debug/edid_override"
-cat > "$T/bin/tee" << EOF
-#!/bin/sh
-v=\$(cat)
-echo "tee \$1 \$v" >> "$T/calls"
-case "\$1:\$v" in
-*/status:detect) echo "\${CABLE:-connected}" > "\$1" ;;
-*/status:on) echo connected > "\$1" ;;
-*/edid_override:reset) : > "\$1" ;;
-*) printf '%s\n' "\$v" > "\$1" ;;
-esac
-EOF
-chmod +x "$T/bin/tee"
+stub gcc 'while [ $# -gt 0 ]; do [ "$1" = -o ] && echo "#!/bin/sh" > "$2" && chmod +x "$2"; shift; done'   # Git Bash: executable means #!
+stub systemctl 'case "$1" in is-active) exit ${ACTIVE_STATUS:-0} ;; start) exit ${GDM_STATUS:-0} ;; esac'
+stub journalctl 'echo "qrc:/qt/qml/Rk3568Tv/qml/Main.qml:5: something went wrong"'
+stub sleep ''
+printf '#!/bin/sh\necho "install.sh $*" >> "%s/calls"\nexit ${INSTALL_STATUS:-0}\n' "$T" > "$src/system/install.sh"
+printf '#!/bin/sh\necho "screen $*" >> "%s/calls"\n' "$T" > "$T/screen"
+chmod +x "$T/screen"
 PATH=$T/bin:$PATH
-export PATH RK3568_TV_SRC=$src RK3568_TV_HDMI=$T/hdmi RK3568_TV_HDMI_DEBUG=$T/debug
-unset RK3568_TV_MODE CMAKE_STATUS ACTIVE_STATUS CABLE CTEST_STATUS
+export PATH RK3568_TV_SRC=$src RK3568_TV_SCREEN=$T/screen
+unset CMAKE_STATUS CTEST_STATUS ACTIVE_STATUS GDM_STATUS INSTALL_STATUS
 
-run() {   # board-run.sh's exit status to $T/status, its output to $T/out, the stubs' calls to $T/calls
+run() {   # ARGS...: board-run.sh's exit status to $T/status, its output to $T/out, the stubs' calls to $T/calls
     rm -f "$T/calls"
-    sh "$tool" > "$T/out" 2>&1
+    sh "$tool" "$@" > "$T/out" 2>&1
     echo $? > "$T/status"
 }
 status() { [ "$(cat "$T/status")" = "$1" ]; }
 
 run
 check "first run: configures the build" has "$T/calls" "cmake -S $src/app -B $src/build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo"
-check "first run: builds the app alone" has "$T/calls" "cmake --build $src/build --target rk3568-tv"
-check "deploy: runs no tests" hasnt "$T/calls" ctest
+check "builds the app alone" has "$T/calls" "cmake --build $src/build --target rk3568-tv"
+check "runs no tests" hasnt "$T/calls" ctest
 check "first run: builds the keys tool" has "$T/calls" "gcc -O2 -Wall -Wextra -o $src/build/board-keys $src/scripts/board-keys.c"
-check "stops the running app first" has "$T/calls" "systemctl stop rk3568-tv-dev"
-check "starts the app as rk3568-tv-dev" has "$T/calls" "--unit=rk3568-tv-dev"
-check "the app takes the screen from the desktop" has "$T/calls" "--property=Conflicts=gdm.service --property=After=gdm.service"
-check "the app runs on EGLFS" has "$T/calls" "--setenv=QT_QPA_PLATFORM=eglfs --setenv=QT_QPA_EGLFS_INTEGRATION=eglfs_kms"
-check "with the screen mode from kms.json" has "$T/calls" "--setenv=QT_QPA_EGLFS_KMS_CONFIG=$src/build/kms.json $src/build/rk3568-tv"
-check "kms.json: 1080p60 by default" has "$src/build/kms.json" '"mode": "1920x1080@60"'
-check "checks that the app keeps running" has "$T/calls" "systemctl is-active --quiet rk3568-tv-dev"
-check "the vendor's HDMI hotplug service is masked until reboot" has "$T/calls" "systemctl mask --runtime --now hdmi_hotplug.service"
-check "masked before HDMI is touched" before "$T/calls" "systemctl mask --runtime" "tee $T/hdmi/status detect"
-check "the old app stops before HDMI is touched" before "$T/calls" "systemctl stop rk3568-tv-dev" "tee $T/hdmi/status detect"
-check "says it runs" has "$T/out" "rk3568-tv is running at 1920x1080@60"
+check "installs the build" has "$T/calls" "install.sh $src/build/rk3568-tv"
+check "masks the vendor's hotplug service until reboot" has "$T/calls" "systemctl mask --runtime --now hdmi_hotplug.service"
+check "restarts the app's unit" has "$T/calls" "systemctl restart rk3568-tv.service"
+check "installed, masked, then restarted" before "$T/calls" "install.sh" "systemctl mask --runtime"
+check "masked before the app starts" before "$T/calls" "systemctl mask --runtime" "systemctl restart"
+check "checks that the app keeps running" has "$T/calls" "systemctl is-active --quiet rk3568-tv.service"
+check "says it runs" has "$T/out" "rk3568-tv is running"
 check "exit 0" status 0
 check "build messages relative to the repository" has "$T/out" "app/src/main.cpp:3:1: error"
 check "build messages without the board's folder" hasnt "$T/out" "$src/app"
@@ -98,76 +79,45 @@ run
 check "second run: no new configure" hasnt "$T/calls" "cmake -S"
 check "second run: the keys tool is up to date" hasnt "$T/calls" gcc
 
-RK3568_TV_MODE=1280x720@50 run
-check "RK3568_TV_MODE sets the mode" has "$src/build/kms.json" '"mode": "1280x720@50"'
-unset RK3568_TV_MODE
-
 CMAKE_STATUS=1 run
 check "a failed build: exit 1" status 1
 check "a failed build: says so" has "$T/out" "the build failed"
 check "a failed build: shows the compiler's message" has "$T/out" "app/src/main.cpp:3:1: error"
-check "a failed build: the running app is left alone" hasnt "$T/calls" "systemctl stop"
-check "a failed build: nothing started" hasnt "$T/calls" systemd-run
+check "a failed build: nothing installed" hasnt "$T/calls" install.sh
+check "a failed build: the running app is left alone" hasnt "$T/calls" systemctl
+
+INSTALL_STATUS=1 run
+check "a failed install: exit 1" status 1
+check "a failed install: nothing restarted" hasnt "$T/calls" "systemctl restart"
 
 ACTIVE_STATUS=3 run
 check "an app that stops: exit 1" status 1
-check "an app that stops: its log is shown" has "$T/out" "qrc:/Rk3568Tv/qml/Main.qml:5: something went wrong"
+check "an app that stops: its log is shown" has "$T/out" "qrc:/qt/qml/Rk3568Tv/qml/Main.qml:5: something went wrong"
 
-rm -f "$src/screen.edid"
-run
-check "screen: undoes an earlier stand-in" has "$T/calls" "tee $T/debug/edid_override reset"
-check "screen: looks at the cable" has "$T/calls" "tee $T/hdmi/status detect"
-check "screen connected: its EDID is saved" has "$src/screen.edid" TV-EDID
-check "screen connected: HDMI is not forced" hasnt "$T/calls" "tee $T/hdmi/status on"
-echo NEW-EDID > "$T/hdmi/edid"
-run
-check "screen connected: a new screen's EDID replaces the saved one" has "$src/screen.edid" NEW-EDID
-
-CABLE=disconnected run
-check "no screen: the saved EDID stands in" has "$T/debug/edid_override" NEW-EDID
-check "no screen: HDMI forced on" has "$T/calls" "tee $T/hdmi/status on"
-check "no screen: says so" has "$T/out" "no screen on HDMI; the app runs as if the last one were there"
-check "no screen: the app starts" has "$T/calls" "systemd-run"
-check "no screen: exit 0" status 0
-check "no screen: the saved EDID is kept" has "$src/screen.edid" NEW-EDID
-
-rm -f "$src/screen.edid"
-CABLE=disconnected run
-check "no screen, no saved EDID: exit 1" status 1
-check "no screen, no saved EDID: says what to do" has "$T/out" "switch the screen on and deploy again"
-check "no screen, no saved EDID: nothing started" hasnt "$T/calls" systemd-run
-
-rm -f "$T/calls"
-sh "$tool" stop > "$T/out" 2>&1
-echo $? > "$T/status"
+run stop
 check "stop: exit 0" status 0
-check "stop: stops the app" has "$T/calls" "systemctl stop rk3568-tv-dev"
-check "stop: HDMI back to the real screen" before "$T/calls" "tee $T/debug/edid_override reset" "tee $T/hdmi/status detect"
-check "stop: the hotplug service unmasked after that" before "$T/calls" "tee $T/hdmi/status detect" "systemctl unmask --runtime hdmi_hotplug.service"
+check "stop: stops the app" has "$T/calls" "systemctl stop rk3568-tv.service"
+check "stop: the screen stand-in ends" has "$T/calls" "screen release"
+check "stop: the hotplug service unmasked after that" before "$T/calls" "screen release" "systemctl unmask --runtime hdmi_hotplug.service"
 check "stop: then the desktop" before "$T/calls" "systemctl unmask --runtime" "systemctl start gdm"
 check "stop: builds nothing" hasnt "$T/calls" cmake
 check "stop: says so" has "$T/out" "the desktop is back"
-sh "$tool" restart > "$T/out" 2>&1
-echo $? > "$T/status"
+GDM_STATUS=1 run stop
+check "stop: a desktop that doesn't start fails it" status 1
+
+run restart
 check "an unknown argument: exit 1" status 1
 
-rm -f "$T/calls"
-sh "$tool" test > "$T/out" 2>&1
-echo $? > "$T/status"
+run test
 check "test: builds everything" grep -qx "cmake --build $src/build" "$T/calls"
 check "test: runs the tests" has "$T/calls" "ctest --test-dir $src/build --output-on-failure"
 check "test: exit 0" status 0
-check "test: the running app stays" hasnt "$T/calls" "systemctl stop"
-check "test: nothing started" hasnt "$T/calls" systemd-run
-check "test: HDMI untouched" hasnt "$T/calls" tee
+check "test: the running app stays" hasnt "$T/calls" systemctl
+check "test: nothing installed" hasnt "$T/calls" install.sh
 check "test: messages relative to the repository" has "$T/out" "app/tests/tst_x.cpp: FAIL!"
-rm -f "$T/calls"
-CTEST_STATUS=8 sh "$tool" test > "$T/out" 2>&1
-echo $? > "$T/status"
+CTEST_STATUS=8 run test
 check "test: failing tests fail it" status 8
-rm -f "$T/calls"
-CMAKE_STATUS=1 sh "$tool" test > "$T/out" 2>&1
-echo $? > "$T/status"
+CMAKE_STATUS=1 run test
 check "test: a failed build fails it" status 1
 check "test: and runs no tests" hasnt "$T/calls" ctest
 

@@ -1,0 +1,41 @@
+# The TV app (step 1.2): full screen on HDMI, as the unprivileged user tv, on tty1 in place of the login prompt.
+# system/install.sh installs it; `rk3568-tv-mode tv` starts it at boot, `rk3568-tv-mode desktop` brings GNOME back
+# (docs/02-board.md, "TV app or desktop").
+[Unit]
+Description=rk3568-tv, the TV app
+Documentation=https://github.com/Nerses01/rk3568-tv
+# The screen and tty1 belong to the app: starting the desktop or a login prompt there stops it, and the other way
+# round
+Conflicts=gdm.service getty@tty1.service
+After=gdm.service getty@tty1.service systemd-user-sessions.service plymouth-quit-wait.service sys-kernel-debug.mount
+# A TV app keeps trying, however often it fails (Restart= below)
+StartLimitIntervalSec=0
+
+[Service]
+User=tv
+# A logind session on tty1 gives the app XDG_RUNTIME_DIR; its groups (install.sh) give it the devices
+PAMName=login
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+# With the tty as its input, Qt switches the console keyboard off while the app runs: keys reach only the app, and
+# Ctrl+Alt+Del no longer restarts the board
+StandardInput=tty-force
+StandardOutput=journal
+StandardError=journal
+UtmpIdentifier=tty1
+UtmpMode=user
+
+# As root ("+"): bring tty1 to the front, and stand in for a screen that is switched off
+ExecStartPre=+-/usr/bin/chvt 1
+ExecStartPre=+/usr/local/lib/rk3568-tv/rk3568-tv-screen prepare
+Environment=QT_QPA_PLATFORM=eglfs
+Environment=QT_QPA_EGLFS_INTEGRATION=eglfs_kms
+Environment=QT_QPA_EGLFS_KMS_CONFIG=/etc/rk3568-tv/kms.json
+ExecStart=/usr/local/bin/rk3568-tv
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -20,10 +20,13 @@ absent() { [ ! -e "$1" ]; }
 
 # A repository of our own: board.sh finds the sources next to itself
 repo=$T/repo
-mkdir -p "$repo/scripts" "$repo/app/qml" "$repo/app/build" "$repo/app/build-x"
+mkdir -p "$repo/scripts" "$repo/app/qml" "$repo/app/tests" "$repo/app/build" "$repo/app/build-x" "$repo/system/tests"
 cp "$here/../board.sh" "$repo/scripts/"
 echo 'cmake_minimum_required(VERSION 3.16)' > "$repo/app/CMakeLists.txt"
 echo 'import QtQuick' > "$repo/app/qml/Main.qml"
+echo 'int t;' > "$repo/app/tests/tst_a.cpp"
+echo '#!/bin/sh' > "$repo/system/install.sh"
+echo '#!/bin/sh' > "$repo/system/tests/test-install.sh"
 echo stale > "$repo/app/build/stale.o"
 echo stale > "$repo/app/build-x/stale.o"
 echo '#!/bin/sh' > "$repo/scripts/board-run.sh"
@@ -64,10 +67,10 @@ check "no address: says where to put it" has "$T/out" "BOARD=root@<address> into
 check "no address: ssh not run" hasnt "$T/ssh.args" board
 
 run logs
-check "address from .env, without the carriage return" has "$T/ssh.args" "root@board.test journalctl -u rk3568-tv-dev -n 100 --no-pager"
+check "address from .env, without the carriage return" has "$T/ssh.args" "root@board.test journalctl -u rk3568-tv -n 100 --no-pager"
 check "logs: exit 0" status 0
 BOARD=root@other.test run logs -f
-check "BOARD wins over .env; logs -f follows" has "$T/ssh.args" "root@other.test journalctl -u rk3568-tv-dev -n 50 -f"
+check "BOARD wins over .env; logs -f follows" has "$T/ssh.args" "root@other.test journalctl -u rk3568-tv -n 50 -f"
 run logs --all
 check "logs with a bad option: exit 2" status 2
 
@@ -78,7 +81,10 @@ check "deploy: sends the board's scripts" has "$T/listing" scripts/board-run.sh
 check "deploy: sends the keys tool" has "$T/listing" scripts/board-keys.c
 check "deploy: no build trees" hasnt "$T/listing" stale.o
 check "deploy: not board.sh itself" hasnt "$T/listing" scripts/board.sh
-check "deploy: replaces the sources" has "$T/ssh.args" "rm -rf /userdata/dev/rk3568-tv/app /userdata/dev/rk3568-tv/scripts"
+check "deploy: sends the app's tests" has "$T/listing" app/tests/tst_a.cpp
+check "deploy: sends the system files" has "$T/listing" system/install.sh
+check "deploy: not their tests" hasnt "$T/listing" system/tests
+check "deploy: replaces the sources" has "$T/ssh.args" "rm -rf /userdata/dev/rk3568-tv/app /userdata/dev/rk3568-tv/system /userdata/dev/rk3568-tv/scripts"
 check "deploy: keeps file times, not owners" has "$T/ssh.args" "tar -xf - --no-same-owner -C /userdata/dev/rk3568-tv"
 check "deploy: builds and starts on the board" has "$T/ssh.args" "sh /userdata/dev/rk3568-tv/scripts/board-run.sh"
 check "deploy: exit 0" status 0
@@ -117,6 +123,16 @@ check "keys without a key: usage" status 2
 
 run stop
 check "stop: board-run.sh stops the app on the board" has "$T/ssh.args" "sh /userdata/dev/rk3568-tv/scripts/board-run.sh stop"
+
+run mode
+check "mode: shows what the board boots into" has "$T/ssh.args" "root@board.test rk3568-tv-mode status"
+run mode tv
+check "mode tv" has "$T/ssh.args" "rk3568-tv-mode tv"
+run mode desktop
+check "mode desktop" has "$T/ssh.args" "rk3568-tv-mode desktop"
+run mode kiosk
+check "mode: anything else is usage, exit 2" status 2
+check "mode: and runs nothing" hasnt "$T/ssh.args" kiosk
 
 echo "$failures failed"
 [ "$failures" -eq 0 ]

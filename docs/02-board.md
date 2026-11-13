@@ -17,7 +17,7 @@ IP, MAC and Bluetooth addresses are left out on purpose; they are in the git-ign
 | OS | Ubuntu 22.04.5 LTS, the vendor's image, changed as listed in "Our changes to the vendor image" |
 | Users | `root`, and `ftpuser` (uid 1000, with a password) for a weighing-scale application in `/userdata/blsRootPath` (291 MB). Nothing starts that application; `/home` is empty |
 | Kernel | 5.10.209, Rockchip BSP |
-| Desktop | GNOME, with Wayland and Xorg sessions installed |
+| Desktop | GNOME, with Wayland and Xorg sessions installed. Since step 1.2 the board boots into the TV app instead; GNOME stays installed as the way back ("TV app or desktop") |
 | GPU driver | `libmali-bifrost-g52-g13p0-x11-gbm` 1.9, proprietary, for X11 and GBM: OpenGL ES 3.2, EGL 1.4. Its `mali/libEGL.so.1` and `mali/libgbm.so.1` are found before Ubuntu's and Mesa's (`/etc/ld.so.conf.d/00-aarch64-mali.conf`), except by Qt's KMS libraries; 03-video-spike.md and 04-ui-spike.md have what that means for Qt. Reading the GPU's `utilisation` file takes 100 ms |
 | Video | `librockchip-mpp1` 1.5.0; GStreamer `rockchipmpp` plugin with `mppvideodec`, `mpph264enc`, `mpph265enc`, `mppjpegdec`, `mppjpegenc`; `librga2` 2.2.0. GStreamer itself is the vendor's 1.22.9, with development files. Decoding: H.265 to 2160p60, H.264 to 2160p30 (03-video-spike.md) |
 | Display planes | `Smart0` (primary, at the bottom, RGB only), `Smart1` (RGB only), `Esmart0` and `Esmart1` (also NV12 and 10-bit NV15: the video planes), `Cluster0` (cursor) and `Cluster1` (AFBC); `zpos` 0–7 on all. The primary plane scales: Qt's framebuffer can differ from the screen mode (04-ui-spike.md) |
@@ -66,6 +66,39 @@ main area.
   `adb shell ip -4 addr show wlan0` for the new address. NetworkManager keeps every network joined this way and
   joins whichever is in range at boot.
 
+## TV app or desktop
+
+Since step 1.2 the board boots into the TV app (TV mode). GNOME stays installed and is the way back. The board can
+only be switched over SSH or over the USB-C cable with `adb shell`, as root. The TV's keyboard can't do it: the
+app switches the console keyboard off.
+
+| To get | Run |
+|---|---|
+| the desktop now and at every boot | `rk3568-tv-mode desktop` |
+| the TV app now and at every boot | `rk3568-tv-mode tv` |
+| the desktop once, until the next boot | `systemctl start gdm` (it stops the app; `systemctl start rk3568-tv` goes back) |
+| what the board boots into | `rk3568-tv-mode status` |
+
+From the PC, `sh scripts/board.sh mode desktop` does the same over SSH. If Wi-Fi is down:
+`adb shell rk3568-tv-mode desktop`.
+
+How the app runs ([system/rk3568-tv.service](../system/rk3568-tv.service)):
+- As the user `tv`, in a logind session on tty1, in place of the login prompt there. Qt switches tty1's keyboard
+  off, so keys reach only the app, and Ctrl+Alt+Del doesn't restart the board.
+- The unit conflicts with GNOME: starting either one stops the other.
+- Before each start, `rk3568-tv-screen prepare` stands in for a switched-off TV ("A switched-off screen leaves no
+  screen" below).
+- If the app stops, systemd starts it again 3 s later, as often as it takes.
+- `systemctl stop rk3568-tv` ends it cleanly (exit 0).
+
+Measured on 2026-11-13, with the TV off:
+
+| | TV mode | Desktop |
+|---|---|---|
+| Boot until the app starts | 8.4 s (systemd: 9.4 s in all) | |
+| Reboot command until SSH answers | 20–23 s | 22 s |
+| Memory in use after boot | 203 MB, app included | 523 MB |
+
 ## Our changes to the vendor image
 
 Made in steps 0.3 to 0.5 (2026-11-13). Copies of the edited files as the vendor shipped them are in
@@ -84,7 +117,9 @@ Made in steps 0.3 to 0.5 (2026-11-13). Copies of the edited files as the vendor 
 | Qt Quick development packages installed (step 0.5): `qt6-declarative-dev` and QML modules, 29 Ubuntu packages, none held. Log: `/var/log/rk3568-tv-qtdev.log` | `apt purge` them |
 | Test clips in `/userdata/media/test/` (step 0.5, 400 MB); the spike's workspace in `/userdata/dev/video-spike/` | delete them |
 | Pictures for the UI spike in `/userdata/media/posters/` (step 0.6, 16 MB); its workspace in `/userdata/dev/ui-spike/` | delete them |
-| The development loop's folder `/userdata/dev/rk3568-tv/` (step 0.7): the app's sources and build, and `screen.edid`, the last screen's EDID. While the development build runs: GNOME stopped, `hdmi_hotplug.service` masked in `/run`, HDMI possibly forced on ([05-development.md](05-development.md)) | `scripts/board.sh stop` or a reboot undoes the run-time changes; delete the folder |
+| The development loop's folder `/userdata/dev/rk3568-tv/` (step 0.7): the app's sources and build ([05-development.md](05-development.md)) | delete the folder |
+| The TV app, installed by `system/install.sh` (step 1.2): the system user `tv` (uid 999; groups video, render, input, audio; home `/var/lib/rk3568-tv`, which holds `screen.edid`), `/usr/local/bin/rk3568-tv`, `/etc/systemd/system/rk3568-tv.service`, `/usr/local/lib/rk3568-tv/rk3568-tv-screen`, `/usr/local/sbin/rk3568-tv-mode`, `/etc/rk3568-tv/kms.json` | `install.sh --remove`; then `userdel tv` and delete `/var/lib/rk3568-tv` |
+| TV mode (`rk3568-tv-mode tv`, step 1.2): default target `multi-user.target` (it was `graphical.target`), `rk3568-tv.service` enabled, the vendor's `hdmi_hotplug.service` masked | `rk3568-tv-mode desktop` |
 
 ## Vendor files
 
@@ -293,9 +328,8 @@ The vendor's `hdmi_hotplug.service` runs `/usr/sbin/lcd_tp_set`, a vendor binary
 cable, a forced connector. So every hotplug starts GNOME, and an app that takes the screen from GNOME stops.
 
 Seen on 2026-11-13 in step 0.7, when `systemd-run` refused to start the app because of the service's queued start
-job. The development loop masks the service while the app runs (`systemctl mask --runtime`, undone by
-`board.sh stop` or a reboot; [05-development.md](05-development.md)). The product has to deal with it for good:
-step 1.2.
+job. Since step 1.2, TV mode masks the service for good, and `rk3568-tv-mode desktop` unmasks it ("TV app or
+desktop" above). A deploy in desktop mode masks it only until the next reboot.
 
 ### A switched-off screen leaves no screen
 
@@ -308,8 +342,10 @@ cat screen.edid > /sys/kernel/debug/dri/0/HDMI-A-1/edid_override   # "reset" und
 echo on > /sys/class/drm/card0-HDMI-A-1/status                     # "detect" undoes it
 ```
 
-The display then runs as if the screen were there, and a screen switched on shows the picture. The development
-loop does this by itself ([05-development.md](05-development.md)). A reboot undoes it.
+The display then runs as if the screen were there, and a screen switched on shows the picture. A reboot undoes
+it. Since step 1.2, `rk3568-tv-screen prepare` does this before every start of the app, with the EDID it saved from
+the last screen connected (`/var/lib/rk3568-tv/screen.edid`). GNOME doesn't, so in desktop mode with the TV off
+nothing drives the display, and `board.sh shot` finds nothing to capture.
 
 ### Load average of 5 at idle
 

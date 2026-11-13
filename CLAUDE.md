@@ -43,7 +43,9 @@ The board is the only test machine, and SSH is the only way in when nobody is at
 - Never flash the board or change the bootloader, the partitions or the boot partition without the developer's
   go-ahead in that conversation, and never before the backup from step 0.2 exists.
 - Never cut off the way in: no changes to networking, sshd or a firewall without a tested way back.
-- Keep GNOME installed until Phase 1 is done; it is the way back if the TV app fails at boot.
+- The board boots into the TV app (step 1.2). Keep GNOME installed until Phase 1 is done; it is the way back if the
+  TV app fails at boot: `rk3568-tv-mode desktop` over SSH, or over the USB-C cable with `adb shell`
+  (docs/02-board.md, "TV app or desktop").
 - The vendor's Rockchip packages (MPP, libmali, RGA and the patched GStreamer and libdrm) are held by apt.
   Never upgrade, unhold or replace them.
 - `/` is small (about 2 GB free): build trees, test media and downloads go to `/userdata`.
