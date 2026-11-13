@@ -119,6 +119,7 @@ Made in steps 0.3 to 0.5 (2026-11-13). Copies of the edited files as the vendor 
 | Pictures for the UI spike in `/userdata/media/posters/` (step 0.6, 16 MB); its workspace in `/userdata/dev/ui-spike/` | delete them |
 | The development loop's folder `/userdata/dev/rk3568-tv/` (step 0.7): the app's sources and build ([05-development.md](05-development.md)) | delete the folder |
 | The TV app, installed by `system/install.sh` (step 1.2): the system user `tv` (uid 999; groups video, render, input, audio; home `/var/lib/rk3568-tv`, which holds `screen.edid`), `/usr/local/bin/rk3568-tv`, `/etc/systemd/system/rk3568-tv.service`, `/usr/local/lib/rk3568-tv/rk3568-tv-screen`, `/usr/local/sbin/rk3568-tv-mode`, `/etc/rk3568-tv/kms.json` | `install.sh --remove`; then `userdel tv` and delete `/var/lib/rk3568-tv` |
+| Time (2026-11-13, step 1.3): the time zone set to the developer's with `timedatectl set-timezone` (the vendor's was `Asia/Shanghai`); `LC_TIME=en_GB.UTF-8` in `/etc/default/locale` for a 24-hour clock (it was `en_US.UTF-8`; the vendor's file is in `/root/rk3568-tv-orig/locale`) | `timedatectl set-timezone Asia/Shanghai`; copy the file back |
 | TV mode (`rk3568-tv-mode tv`, step 1.2): default target `multi-user.target` (it was `graphical.target`), `rk3568-tv.service` enabled, the vendor's `hdmi_hotplug.service` masked | `rk3568-tv-mode desktop` |
 
 ## Vendor files
