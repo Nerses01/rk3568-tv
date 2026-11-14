@@ -161,6 +161,14 @@ it never goes into the repository or anywhere public. To check a copy: `sha256su
 Since step 0.4 the board's `boot` differs from the backup's: the backup holds the vendor's original, without HDMI
 sound.
 
+A second full backup, of the board as it was after step 1.6, was taken on 2026-11-14 before trying Android:
+`C:\rk3568-backup\2026-11-14\` on the PC, with the same files, layout and addresses. It went over SSH on the home
+Wi-Fi (about 9 MB/s, 20 minutes, every piece hashed on the board and on the PC). The regions that shouldn't change
+match the first backup byte for byte; `boot` is step 0.4's image (`46ecc4d7…`), and `oem` differs only by its
+mount-time writes. e2fsck on copies of `rootfs` and `userdata` found only what a running system leaves (the
+journal, free-block counts). Restoring it brings back the board as after step 1.6; restoring the first brings back
+the vendor's system.
+
 | File | Content |
 |---|---|
 | `head.img.gz` | sectors `0x0` to `0x3FFF`: protective MBR, GPT, first-stage loader, vendor storage |
